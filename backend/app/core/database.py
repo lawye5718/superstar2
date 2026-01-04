@@ -1,0 +1,73 @@
+"""Database configuration and session management"""
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.pool import QueuePool
+from contextlib import asynccontextmanager
+import logging
+
+from .config import get_settings
+
+settings = get_settings()
+
+# Synchronous engine for Alembic migrations and sync operations
+sync_engine = create_engine(
+    settings.DATABASE_SYNC_URL,
+    poolclass=QueuePool,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
+
+# Asynchronous engine for FastAPI operations
+async_engine = create_async_engine(
+    settings.DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
+
+# Session factories
+SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
+AsyncSessionLocal = sessionmaker(
+    autocommit=False, 
+    autoflush=False, 
+    expire_on_commit=False,
+    class_=AsyncSession,
+    bind=async_engine
+)
+
+Base = declarative_base()
+
+
+# Dependency for FastAPI
+async def get_db() -> AsyncSession:
+    """Get database session as FastAPI dependency"""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
+async def init_db():
+    """Initialize database connection"""
+    try:
+        # Test the connection
+        async with async_engine.begin() as conn:
+            pass
+        logging.info("Database connection initialized successfully")
+    except Exception as e:
+        logging.error(f"Failed to initialize database: {e}")
+        raise
+
+
+async def close_db():
+    """Close database connection"""
+    await async_engine.dispose()
+    logging.info("Database connection closed")

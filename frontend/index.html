@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我是大明星 - Superstar AI</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        .retro-font { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        .camera-shutter-anim {
+            animation: flash 0.2s;
+        }
+        @keyframes flash {
+            0% { opacity: 1; }
+            50% { opacity: 0; background-color: white; }
+            100% { opacity: 1; }
+        }
+        .photo-print-enter-active {
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .photo-print-enter-from {
+            transform: translateY(-100px) scale(0.8);
+            opacity: 0;
+        }
+        .polaroid {
+            background: white;
+            padding: 1rem 1rem 3rem 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transform: rotate(-2deg);
+            transition: transform 0.3s;
+        }
+        .polaroid:hover {
+            transform: rotate(0deg) scale(1.02);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 retro-font text-stone-800 h-screen overflow-hidden">
+
+<div id="app" class="h-full flex flex-col">
+
+    <!-- 导航栏 -->
+    <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
+        <div class="text-2xl font-bold text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
+        <div class="space-x-4 text-sm">
+            <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
+            <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
+            <button @click="showUserModal = true">👤 余额: {{ user.balance }}</button>
+        </div>
+    </nav>
+
+    <!-- 主视图区域 -->
+    <main class="flex-grow relative overflow-hidden">
+        
+        <!-- 1. 复古相机视图 -->
+        <div v-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-800 relative">
+            <!-- 相机机身装饰 -->
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/leather.png')] opacity-30"></div>
+            
+            <!-- 取景框/展示区 -->
+            <div class="relative z-10 w-full max-w-md h-[60vh] flex items-center justify-center">
+                <transition name="photo-print">
+                    <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing" 
+                         @mousedown="startDrag" @touchstart="startDrag">
+                        <img :src="currentCameraPhoto.cover_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
+                        <div class="text-center mt-4 text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
+                    </div>
+                    <div v-else class="text-white text-opacity-50 text-center">
+                        <div class="text-6xl mb-4">📷</div>
+                        <p>点击快门探索风格</p>
+                    </div>
+                </transition>
+            </div>
+
+            <!-- 控制区 -->
+            <div class="relative z-20 mt-8 flex flex-col items-center gap-4">
+                <!-- 快门按钮 -->
+                <button @click="triggerCamera" :disabled="isLoading"
+                        class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center">
+                    <div class="w-16 h-16 rounded-full border-2 border-red-800 bg-red-500"></div>
+                </button>
+                
+                <!-- 转化按钮 -->
+                <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)"
+                        class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
+                    ✨ 我也要同款 (¥{{ currentCameraPhoto.price }})
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 画廊视图 -->
+        <div v-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
+            <!-- 搜索与筛选 -->
+            <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4">
+                <h2 class="text-3xl mb-4">热门风格</h2>
+                <div class="flex gap-2 overflow-x-auto pb-2">
+                    <button v-for="cat in categories" :key="cat" @click="filterCategory(cat)"
+                            class="px-4 py-1 rounded-full border border-stone-300 hover:bg-stone-800 hover:text-white transition-colors"
+                            :class="{'bg-stone-800 text-white': activeCategory === cat}">
+                        {{ cat }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- 瀑布流 -->
+            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl"
+                     @click="createOrder(tpl)">
+                    <img :src="tpl.cover_image_url" class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                        <h3 class="text-white font-bold">{{ tpl.title }}</h3>
+                        <p class="text-yellow-400 text-sm">🔥 {{ tpl.usage_count }} 人已生成</p>
+                        <button class="mt-2 w-full bg-white text-black py-1 rounded-md text-sm font-bold">做同款</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 等待/结果遮罩层 -->
+        <div v-if="processingOrder" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center text-white">
+            <div v-if="processingOrder.status === 'PROCESSING'" class="text-center">
+                <div class="animate-spin text-6xl mb-4">⏳</div>
+                <h3 class="text-2xl mb-2">正在为您打造大片...</h3>
+                <p class="text-gray-400">大模型正在绘图，约需 30 秒</p>
+                <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden">
+                    <div class="h-full bg-yellow-500 animate-pulse w-full origin-left duration-[30s] transition-transform" style="transform: scaleX(0.1)"></div>
+                </div>
+            </div>
+            
+            <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
+                <h3 class="text-3xl text-yellow-500 mb-6">✨ 生成完成!</h3>
+                <div class="flex gap-4 items-center justify-center">
+                    <div class="polaroid w-64 transform -rotate-3">
+                        <p class="text-gray-500 mb-2 text-xs">原图参考</p>
+                        <img :src="processingOrder.template.cover_image_url" class="w-full aspect-[3/4] object-cover filter grayscale opacity-50">
+                    </div>
+                    <div class="text-2xl">➡️</div>
+                    <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
+                        <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover">
+                        <div class="mt-2 flex justify-between items-center px-2">
+                            <span class="text-xs text-gray-500">{{ new Date().toLocaleDateString() }}</span>
+                            <button class="text-blue-600 text-sm font-bold">下载 HD</button>
+                        </div>
+                    </div>
+                </div>
+                <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black transition">
+                    关闭
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 用户设置/上传模态框 -->
+    <div v-if="showUserModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showUserModal = false">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 class="text-xl font-bold mb-4">我的档案</h3>
+            <div class="flex flex-col items-center mb-6">
+                <div class="w-24 h-24 rounded-full bg-gray-200 overflow-hidden mb-2 border-4 border-yellow-500 relative">
+                    <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
+                    <div v-else class="w-full h-full flex items-center justify-center text-4xl">👤</div>
+                </div>
+                <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 未上传基准照片</p>
+            </div>
+            
+            <div class="space-y-3">
+                <label class="block text-sm font-bold">上传正脸照 (必须清晰)</label>
+                <input type="text" v-model="tempFaceUrl" placeholder="输入图片URL (模拟上传)" class="w-full border p-2 rounded">
+                
+                <label class="block text-sm font-bold">性别</label>
+                <select v-model="tempGender" class="w-full border p-2 rounded">
+                    <option value="female">女 (Female)</option>
+                    <option value="male">男 (Male)</option>
+                </select>
+                
+                <button @click="updateUserFace" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold mt-4">
+                    保存档案
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8000/api/v1'; // 对应 FastAPI 地址
+
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const currentView = ref('camera');
+            const user = ref({ balance: 100, face_image_url: null, gender: 'female' });
+            const currentCameraPhoto = ref(null);
+            const galleryTemplates = ref([]);
+            const isLoading = ref(false);
+            const showUserModal = ref(false);
+            const processingOrder = ref(null);
+            
+            // 临时表单数据
+            const tempFaceUrl = ref('');
+            const tempGender = ref('female');
+            const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
+            const activeCategory = ref('全部');
+
+            // --- 核心逻辑 ---
+
+            // 1. 初始化
+            const init = async () => {
+                // 模拟加载画廊
+                loadGallery();
+            };
+
+            // 2. 复古相机逻辑
+            const triggerCamera = async () => {
+                isLoading.value = true;
+                // 播放快门音效 (可选)
+                try {
+                    // 模拟获取随机模板
+                    const mockTemplates = [
+                        {
+                            id: 1,
+                            title: "军绿色毛呢大衣复古写真",
+                            cover_image_url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
+                            price: 9.9,
+                            usage_count: 1250
+                        },
+                        {
+                            id: 2,
+                            title: "祖母绿缎面礼裙轻奢",
+                            cover_image_url: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500&q=80",
+                            price: 19.9,
+                            usage_count: 890
+                        },
+                        {
+                            id: 3,
+                            title: "网球风运动写真",
+                            cover_image_url: "https://images.unsplash.com/photo-1530915512336-367958254703?w=500&q=80",
+                            price: 14.9,
+                            usage_count: 642
+                        }
+                    ];
+                    const randomTemplate = mockTemplates[Math.floor(Math.random() * mockTemplates.length)];
+                    currentCameraPhoto.value = null; // Reset for animation
+                    setTimeout(() => {
+                        currentCameraPhoto.value = randomTemplate;
+                        isLoading.value = false;
+                    }, 300); // 模拟快门延迟
+                } catch (e) {
+                    alert("获取图片失败");
+                    isLoading.value = false;
+                }
+            };
+
+            // 3. 订单逻辑
+            const createOrder = async (template) => {
+                // 检查头像
+                if (!user.value.face_image_url) {
+                    alert("请先上传您的正脸照片！");
+                    showUserModal.value = true;
+                    return;
+                }
+                
+                // 检查余额
+                if (user.value.balance < template.price) {
+                    alert(`余额不足，需支付 ¥${template.price}`);
+                    // 模拟充值
+                    user.value.balance += 100;
+                    return;
+                }
+
+                if (!confirm(`确定消耗 ¥${template.price} 制作同款吗？`)) return;
+
+                try {
+                    // 模拟创建订单
+                    const order = {
+                        id: 'mock-order-id',
+                        status: 'PROCESSING',
+                        amount: template.price,
+                        created_at: new Date()
+                    };
+                    
+                    // 进入等待界面
+                    processingOrder.value = { ...order, template };
+                    
+                    // 模拟处理过程
+                    setTimeout(() => {
+                        processingOrder.value.status = 'COMPLETED';
+                        processingOrder.value.result_image_url = "https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80";
+                    }, 3000);
+                    
+                    // 更新本地余额
+                    user.value.balance -= template.price;
+                } catch (e) {
+                    alert("下单失败");
+                }
+            };
+
+            // 4. 用户资料
+            const updateUserFace = async () => {
+                if (!tempFaceUrl.value) return;
+                user.value.face_image_url = tempFaceUrl.value;
+                user.value.gender = tempGender.value;
+                showUserModal.value = false;
+                alert("档案更新成功！");
+            };
+
+            // 5. 画廊
+            const loadGallery = async (cat = '') => {
+                // 模拟数据
+                const mockData = [
+                    {
+                        id: 1,
+                        title: "军绿色毛呢大衣复古写真",
+                        cover_image_url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
+                        price: 9.9,
+                        usage_count: 1250
+                    },
+                    {
+                        id: 2,
+                        title: "祖母绿缎面礼裙轻奢",
+                        cover_image_url: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500&q=80",
+                        price: 19.9,
+                        usage_count: 890
+                    },
+                    {
+                        id: 3,
+                        title: "网球风运动写真",
+                        cover_image_url: "https://images.unsplash.com/photo-1530915512336-367958254703?w=500&q=80",
+                        price: 14.9,
+                        usage_count: 642
+                    },
+                    {
+                        id: 4,
+                        title: "森系清新风格",
+                        cover_image_url: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=500&q=80",
+                        price: 12.9,
+                        usage_count: 721
+                    },
+                    {
+                        id: 5,
+                        title: "职场精英风",
+                        cover_image_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&q=80",
+                        price: 16.9,
+                        usage_count: 583
+                    },
+                    {
+                        id: 6,
+                        title: "海边度假风",
+                        cover_image_url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=500&q=80",
+                        price: 18.9,
+                        usage_count: 432
+                    }
+                ];
+                galleryTemplates.value = mockData;
+            };
+            
+            const filterCategory = (cat) => {
+                activeCategory.value = cat;
+                loadGallery(cat);
+            };
+
+            // 简单的拖拽交互 (Camera)
+            const startDrag = (e) => {
+                // 此处可添加手势逻辑，配合 interact.js 库更好
+                console.log("Dragging photo...");
+            };
+
+            onMounted(init);
+
+            return {
+                currentView, user, currentCameraPhoto, galleryTemplates, isLoading,
+                showUserModal, tempFaceUrl, tempGender, processingOrder,
+                categories, activeCategory,
+                triggerCamera, createOrder, updateUserFace, filterCategory, startDrag
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
