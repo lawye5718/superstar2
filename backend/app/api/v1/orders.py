@@ -1,5 +1,3 @@
-"""Order API routes"""
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
@@ -8,6 +6,7 @@ import uuid
 from datetime import datetime
 from app.core.database import SyncSessionLocal
 from app.core.dependencies import get_current_user_id
+from app.core.config import settings
 from app.models.database import Order, User, Template
 from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
 
@@ -37,7 +36,7 @@ def create_order(
         
         # 创建订单
         order_id = str(uuid.uuid4())
-        template_price = float(template.price) if hasattr(template, 'price') and template.price else 9.9
+        template_price = float(template.price) if hasattr(template, 'price') and template.price else settings.DEFAULT_TEMPLATE_PRICE
         
         order = Order(
             id=order_id,
@@ -101,7 +100,7 @@ def get_order(
             status=order.status.value if hasattr(order.status, 'value') else str(order.status),
             amount=float(order.amount),
             credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
-            result_image_url=getattr(order, 'result_image_url', f"https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80"),  # 临时结果图片
+            result_image_url=getattr(order, 'result_image_url', None),  # 返回实际URL或None
             created_at=order.created_at,
             updated_at=order.updated_at
         )

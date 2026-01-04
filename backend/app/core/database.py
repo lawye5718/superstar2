@@ -15,7 +15,6 @@ settings = get_settings()
 # Synchronous engine for Alembic migrations and sync operations
 sync_engine = create_engine(
     settings.DATABASE_SYNC_URL,
-    poolclass=QueuePool,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,

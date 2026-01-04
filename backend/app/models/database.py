@@ -14,10 +14,16 @@ from app.core.config import get_settings
 settings = get_settings()
 
 # Use JSONB for PostgreSQL, JSON for SQLite
-JSONType = JSONB if "postgresql" in settings.DATABASE_URL else JSON
+def get_json_type():
+    """Return appropriate JSON type based on database"""
+    if "postgresql" in settings.DATABASE_URL:
+        return JSONB
+    return JSON
 
-# Use UUID for PostgreSQL, String for SQLite
-def UUID(as_uuid=False):
+JSONType = get_json_type()
+
+# Use UUID for PostgreSQL, String for SQLite  
+def get_uuid_type(as_uuid=False):
     """Return appropriate UUID type based on database"""
     if "postgresql" in settings.DATABASE_URL:
         return PostgresUUID(as_uuid=as_uuid)
@@ -67,7 +73,7 @@ class User(Base):
     """User model"""
     __tablename__ = "users"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
     email = Column(String(255), unique=True, nullable=True, index=True)
     phone = Column(String(20), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=True)
@@ -101,7 +107,7 @@ class Template(Base):
     """Template (Prompt) model"""
     __tablename__ = "prompts"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
     title = Column(String(255), nullable=False)
     gender = Column(SQLEnum(GenderEnum), nullable=False, index=True)
     tags = Column(JSON, default=lambda: [], nullable=False, index=True)  # Array of strings
@@ -132,7 +138,7 @@ class Package(Base):
     """Package model"""
     __tablename__ = "packages"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     item_count = Column(Integer, nullable=False)  # Number of generations
@@ -152,13 +158,13 @@ class PackageTemplateRule(Base):
     """Package template rule model"""
     __tablename__ = "package_template_rules"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    package_id = Column(UUID(as_uuid=False), ForeignKey("packages.id"), nullable=False, index=True)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
+    package_id = Column(get_uuid_type(as_uuid=False), ForeignKey("packages.id"), nullable=False, index=True)
     rule_type = Column(SQLEnum(PackageRuleTypeEnum), nullable=False)
     rule_config = Column(JSONType, nullable=False)  # e.g., {"tag": "古风"} or {"template_ids": ["uuid1", "uuid2"]}
     
     # Optional: link to specific template (for FIXED type)
-    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=True)
+    template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
@@ -171,16 +177,16 @@ class GenerationTask(Base):
     """Generation task model (for async processing)"""
     __tablename__ = "generation_tasks"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
-    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=False)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
+    template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=False)
     status = Column(SQLEnum(TaskStatusEnum), default=TaskStatusEnum.PENDING, nullable=False, index=True)
     
     # V15.1: Portrait URL for generation
     portrait_url = Column(String(500), nullable=True)
     
     # Result
-    result_gallery_id = Column(UUID(as_uuid=False), ForeignKey("user_galleries.id"), nullable=True)
+    result_gallery_id = Column(get_uuid_type(as_uuid=False), ForeignKey("user_galleries.id"), nullable=True)
     
     # Error handling
     error_message = Column(Text, nullable=True)
@@ -197,9 +203,9 @@ class UserGallery(Base):
     """User gallery model"""
     __tablename__ = "user_galleries"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
-    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=False, index=True)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
+    template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=False, index=True)
     
     # Image URLs
     image_url_free = Column(String(500), nullable=False)  # 1080p with watermark
@@ -221,8 +227,8 @@ class Like(Base):
     """Like model (for public gallery)"""
     __tablename__ = "likes"
     
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), primary_key=True)
-    gallery_item_id = Column(UUID(as_uuid=False), ForeignKey("user_galleries.id"), primary_key=True)
+    user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), primary_key=True)
+    gallery_item_id = Column(get_uuid_type(as_uuid=False), ForeignKey("user_galleries.id"), primary_key=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # Relationships
@@ -233,10 +239,10 @@ class Order(Base):
     """Order model"""
     __tablename__ = "orders"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
-    package_id = Column(UUID(as_uuid=False), ForeignKey("packages.id"), nullable=True)
-    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=True)  # 添加模板ID
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
+    package_id = Column(get_uuid_type(as_uuid=False), ForeignKey("packages.id"), nullable=True)
+    template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=True)  # 添加模板ID
     credits_purchased = Column(Integer, nullable=False)  # Credits added to user account
     credits_consumed = Column(Integer, default=0, nullable=False)  # 消耗积分
     
@@ -266,7 +272,7 @@ class AuditLog(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-    actor_user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=True)
+    actor_user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=True)
     action_type = Column(String(100), nullable=False, index=True)
     details = Column(JSONType, nullable=True)
 
@@ -275,9 +281,9 @@ class TemplateFavorite(Base):
     """User template favorites model"""
     __tablename__ = "template_favorites"
     
-    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
-    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=False, index=True)
+    id = Column(get_uuid_type(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
+    template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=False, index=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     

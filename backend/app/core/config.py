@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     CDN_DOMAIN: str = os.getenv("CDN_DOMAIN", "")
     STORAGE_TYPE: str = os.getenv("STORAGE_TYPE", "local")  # local, cos, s3, etc.
     
+    # Default values
+    DEFAULT_TEMPLATE_PRICE: float = 9.9
+    DEFAULT_RESULT_IMAGE_PLACEHOLDER: str = "/static/placeholder-result.jpg"
+    
     class Config:
         case_sensitive = True
 
