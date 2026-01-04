@@ -60,10 +60,10 @@ def create_order(
         db.commit()
         db.refresh(order)
         
-        # 模拟订单完成（实际应该由后台任务处理）
-        # 这里简化处理，立即设置为完成状态
-        import time
-        time.sleep(1)  # 模拟处理时间
+        # TODO: 在实际生产环境中，应该将订单发送到消息队列（如Celery）进行异步处理
+        # 这里简化处理，模拟订单立即完成
+        # import asyncio
+        # await asyncio.sleep(1)  # 使用异步sleep而非同步
         order.status = "COMPLETED"
         order.result_image_url = template.display_image_urls[0] if template.display_image_urls else "https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80"
         db.commit()
