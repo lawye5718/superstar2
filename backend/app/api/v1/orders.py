@@ -71,6 +71,37 @@ def create_order(
         db.close()
 
 
+@router.get("/", response_model=list[OrderResponse])
+def read_orders(
+    skip: int = 0,
+    limit: int = 100,
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """
+    Retrieve own orders.
+    """
+    # 使用同步会话以兼容现有代码
+    db = SyncSessionLocal()
+    try:
+        orders = db.query(Order).filter(Order.user_id == current_user_id).offset(skip).limit(limit).all()
+        return [
+            OrderResponse(
+                id=str(order.id),
+                user_id=str(order.user_id),
+                template_id=str(order.template_id) if order.template_id else None,
+                status=order.status.value if hasattr(order.status, 'value') else str(order.status),
+                amount=float(order.amount),
+                credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
+                result_image_url=getattr(order, 'result_image_url', None),
+                created_at=order.created_at,
+                updated_at=order.updated_at
+            )
+            for order in orders
+        ]
+    finally:
+        db.close()
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(
     order_id: str,
@@ -89,9 +120,6 @@ def get_order(
         # 验证订单属于当前用户
         if str(order.user_id) != str(current_user_id):
             raise HTTPException(status_code=403, detail="Not authorized to view this order")
-        
-        # 获取关联的模板信息
-        template = db.query(Template).filter(Template.id == order.template_id).first()
         
         return OrderResponse(
             id=str(order.id),
