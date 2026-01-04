@@ -1,20 +1,26 @@
 """User API routes"""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from typing import Any
+from typing import Any, List
+from pydantic import BaseModel
 import aiofiles
 import os
 import uuid
 
 from app.core.database import SyncSessionLocal
 from app.core.dependencies import get_current_user_id
-from app.models.database import User
+from app.models.database import User, Order
 from app.schemas.user import UserResponse
+from app.schemas.order import OrderResponse
 import asyncio
 
 router = APIRouter()
+
+
+class TopUpRequest(BaseModel):
+    amount: int  # 充值金额，对应积分
 
 
 @router.get("/me", response_model=UserResponse)
@@ -41,6 +47,64 @@ def read_user_me(
             db.commit()
             db.refresh(user)
         return user
+    finally:
+        db.close()
+
+
+@router.post("/top-up", response_model=UserResponse)
+def top_up_balance(
+    top_up_data: TopUpRequest,
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """
+    Top up user balance/credits
+    """
+    db = SyncSessionLocal()
+    try:
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 增加用户余额
+        user.credits += top_up_data.amount
+        db.commit()
+        db.refresh(user)
+        
+        return user
+    finally:
+        db.close()
+
+
+@router.get("/orders", response_model=List[OrderResponse])
+def get_user_orders(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, le=1000),
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """
+    Get user's order history
+    """
+    db = SyncSessionLocal()
+    try:
+        orders = db.query(Order).filter(
+            Order.user_id == current_user_id
+        ).order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+        
+        result = []
+        for order in orders:
+            result.append(OrderResponse(
+                id=order.id,
+                user_id=order.user_id,
+                template_id=order.template_id,
+                status=order.status,
+                amount=float(order.amount),
+                credits_consumed=float(order.credits_consumed),
+                result_image_url=order.result_image_url,
+                created_at=order.created_at,
+                updated_at=order.updated_at
+            ))
+        
+        return result
     finally:
         db.close()
 

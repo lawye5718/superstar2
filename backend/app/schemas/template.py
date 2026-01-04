@@ -31,6 +31,8 @@ class TemplateUpdate(BaseModel):
 
 class TemplateResponse(TemplateBase):
     id: UUID
+    price: float = 9.9
+    usage_count: int = 0
     created_at: datetime
     updated_at: datetime
 

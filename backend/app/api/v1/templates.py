@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import Any
 import random
+from datetime import datetime
 
 from app.core.database import SyncSessionLocal
 from app.models.database import Template
@@ -25,6 +26,7 @@ def get_random_template() -> Any:
         total_count = db.query(Template).count()
         if total_count == 0:
             # 如果没有模板，返回一个模拟的模板
+            now = datetime.utcnow()
             return TemplateResponse(
                 id="mock-template-id",
                 title="军绿色毛呢大衣复古写真",
@@ -38,7 +40,9 @@ def get_random_template() -> Any:
                 is_approved=True,
                 display_image_urls=["https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80"],
                 price=9.9,
-                usage_count=1250
+                usage_count=1250,
+                created_at=now,
+                updated_at=now
             )
         
         # 随机获取一个偏移量
@@ -54,8 +58,10 @@ def get_random_template() -> Any:
             config=template.config or {},
             is_approved=template.is_approved,
             display_image_urls=template.display_image_urls or [],
-            price=getattr(template, 'price', 9.9),  # 假设模板有价格属性
-            usage_count=getattr(template, 'usage_count', 0)  # 假设模板有使用次数属性
+            price=float(template.price) if hasattr(template, 'price') and template.price else 9.9,
+            usage_count=template.usage_count if hasattr(template, 'usage_count') else 0,
+            created_at=template.created_at,
+            updated_at=template.updated_at
         )
     finally:
         db.close()
@@ -92,8 +98,10 @@ def get_templates(
                 config=template.config or {},
                 is_approved=template.is_approved,
                 display_image_urls=template.display_image_urls or [],
-                price=getattr(template, 'price', 9.9),  # 假设模板有价格属性
-                usage_count=getattr(template, 'usage_count', 0)  # 假设模板有使用次数属性
+                price=float(template.price) if hasattr(template, 'price') and template.price else 9.9,
+                usage_count=template.usage_count if hasattr(template, 'usage_count') else 0,
+                created_at=template.created_at,
+                updated_at=template.updated_at
             ))
         
         return result

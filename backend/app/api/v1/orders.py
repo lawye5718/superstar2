@@ -7,15 +7,17 @@ from typing import Any
 import uuid
 from datetime import datetime
 from app.core.database import SyncSessionLocal
+from app.core.dependencies import get_current_user_id
 from app.models.database import Order, User, Template
-from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
+from app.schemas.order import OrderCreate, OrderResponse
 
 router = APIRouter()
 
 
 @router.post("/", response_model=OrderResponse)
 def create_order(
-    order_in: OrderCreate
+    order_in: OrderCreate,
+    current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
     Create a new order.
@@ -28,20 +30,43 @@ def create_order(
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         
+        # 获取用户
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 检查用户余额
+        price = float(template.price) if hasattr(template, 'price') and template.price else 9.9
+        if user.credits < price:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        # 扣除用户余额
+        user.credits -= int(price)
+        
         # 创建订单
         order_id = str(uuid.uuid4())
         order = Order(
             id=order_id,
-            user_id="test-user-uuid-001",  # 临时硬编码，实际应从认证信息中获取
+            user_id=current_user_id,
             template_id=order_in.template_id,
-            status="PENDING",  # 订单状态
-            amount=template.price if hasattr(template, 'price') else 9.9,  # 使用模板价格
-            credits_consumed=template.price if hasattr(template, 'price') else 9.9  # 消耗积分
+            status="PROCESSING",  # 订单状态
+            amount=price,
+            credits_consumed=price,
+            credits_purchased=0,
+            platform="web"
         )
         
         db.add(order)
         db.commit()
         db.refresh(order)
+        
+        # TODO: 在实际生产环境中，应该将订单发送到消息队列（如Celery）进行异步处理
+        # 这里简化处理，模拟订单立即完成
+        # import asyncio
+        # await asyncio.sleep(1)  # 使用异步sleep而非同步
+        order.status = "COMPLETED"
+        order.result_image_url = template.display_image_urls[0] if template.display_image_urls else "https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80"
+        db.commit()
         
         # 返回订单信息
         return OrderResponse(
@@ -49,11 +74,15 @@ def create_order(
             user_id=order.user_id,
             template_id=order.template_id,
             status=order.status,
-            amount=order.amount,
-            credits_consumed=order.credits_consumed,
+            amount=float(order.amount),
+            credits_consumed=float(order.credits_consumed),
+            result_image_url=order.result_image_url,
             created_at=order.created_at,
             updated_at=order.updated_at
         )
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
@@ -83,9 +112,9 @@ def get_order(
             user_id=order.user_id,
             template_id=order.template_id,
             status=order.status,
-            amount=order.amount,
-            credits_consumed=order.credits_consumed,
-            result_image_url=getattr(order, 'result_image_url', f"https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80"),  # 临时结果图片
+            amount=float(order.amount),
+            credits_consumed=float(order.credits_consumed),
+            result_image_url=order.result_image_url if order.result_image_url else f"https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80",
             created_at=order.created_at,
             updated_at=order.updated_at
         )
