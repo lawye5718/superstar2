@@ -11,14 +11,10 @@
     <style>
         .retro-font { font-family: 'Abril Fatface', cursive; }
         .body-font { font-family: 'Lato', sans-serif; }
-        .camera-shutter-anim { animation: flash 0.2s; }
-        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0; background-color: white; } 100% { opacity: 1; } }
-        .photo-print-enter-active { transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .photo-print-enter-from { transform: translateY(-100px) scale(0.8); opacity: 0; }
         .polaroid { background: white; padding: 1rem 1rem 3rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: rotate(-2deg); transition: transform 0.3s; }
         .polaroid:hover { transform: rotate(0deg) scale(1.02); z-index: 10; }
-        /* 进度条动画 */
-        @keyframes progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
     </style>
 </head>
 <body class="bg-stone-100 body-font text-stone-800 h-screen overflow-hidden">
@@ -28,23 +24,34 @@
     <!-- 导航栏 -->
     <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
         <div class="text-2xl retro-font text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
-        <div class="space-x-4 text-sm flex items-center">
+        <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
-            <button @click="showUserModal = true" class="hover:text-yellow-200">👤 余额: {{ user.balance }}</button>
-            <!-- 隐蔽的管理员入口 -->
-            <button @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
+            <button @click="showUserModal = true" class="hover:text-yellow-200 font-bold">👤 {{ user.username }} (¥{{ user.credits }})</button>
+            <!-- 仅管理员可见 -->
+            <button v-if="user.is_superuser" @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
+            <button @click="logout" class="text-stone-500 hover:text-white ml-4">退出</button>
+        </div>
+        <div v-else>
+            <button @click="showAuthModal = true" class="bg-yellow-500 text-black px-4 py-1 rounded font-bold hover:bg-yellow-400">登录 / 注册</button>
         </div>
     </nav>
 
     <!-- 主视图区域 -->
     <main class="flex-grow relative overflow-hidden bg-stone-100">
         
-        <!-- 1. 复古相机视图 -->
-        <div v-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-800 relative">
+        <!-- 未登录欢迎页 -->
+        <div v-if="!isLoggedIn" class="h-full flex flex-col items-center justify-center bg-stone-800 text-white">
+            <h1 class="retro-font text-6xl text-yellow-500 mb-4">Superstar AI</h1>
+            <p class="text-xl mb-8">一键生成你的好莱坞大片</p>
+            <button @click="showAuthModal = true" class="px-8 py-3 bg-white text-stone-900 rounded-full font-bold text-lg hover:scale-105 transition">立即开始</button>
+        </div>
+
+        <!-- 1. 复古相机视图 (已登录) -->
+        <div v-else-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-800 relative">
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/leather.png')] opacity-30"></div>
             <div class="relative z-10 w-full max-w-md h-[60vh] flex items-center justify-center">
-                <transition name="photo-print">
+                <transition name="fade">
                     <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing">
                         <img :src="currentCameraPhoto.cover_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
                         <div class="text-center mt-4 retro-font text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
@@ -66,9 +73,9 @@
         </div>
 
         <!-- 2. 画廊视图 -->
-        <div v-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
-            <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4">
-                <h2 class="text-3xl retro-font mb-4">Trending Styles</h2>
+        <div v-else-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
+            <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4 flex justify-between items-center">
+                <h2 class="text-3xl retro-font">Trending Styles</h2>
                 <div class="flex gap-2 overflow-x-auto pb-2">
                     <button v-for="cat in categories" :key="cat" @click="filterCategory(cat)"
                             class="px-4 py-1 rounded-full border border-stone-300 hover:bg-stone-800 hover:text-white transition-colors"
@@ -89,61 +96,30 @@
             </div>
         </div>
 
-        <!-- 3. 管理员后台 (Admin Ops) -->
-        <div v-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
+        <!-- 3. 管理员后台 -->
+        <div v-else-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
             <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg mt-8">
                 <h2 class="text-2xl font-bold mb-6 flex items-center">🛠️ 管理员上架后台</h2>
-                
                 <div class="space-y-4">
-                    <!-- 图片上传 -->
                     <div>
-                        <label class="block text-sm font-bold mb-1">1. 样图上传 (Cover Image)</label>
+                        <label class="block text-sm font-bold mb-1">样图上传</label>
                         <input type="file" @change="handleAdminFileUpload" class="w-full border p-2 rounded">
                         <div v-if="newTemplate.cover_image_url" class="mt-2 w-32 h-40 bg-gray-100 rounded overflow-hidden">
                             <img :src="newTemplate.cover_image_url" class="w-full h-full object-cover">
                         </div>
                     </div>
-
-                    <!-- 基础信息 -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-1">标题 (Title)</label>
-                            <input v-model="newTemplate.title" type="text" class="w-full border p-2 rounded" placeholder="e.g. 森林精灵">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-1">分类 (Category)</label>
-                            <select v-model="newTemplate.category" class="w-full border p-2 rounded">
-                                <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-bold mb-1">价格 (Price)</label>
-                        <input v-model.number="newTemplate.price" type="number" class="w-full border p-2 rounded">
-                    </div>
-
-                    <!-- Prompt 配置 -->
+                    <input v-model="newTemplate.title" type="text" class="w-full border p-2 rounded" placeholder="标题">
+                    <select v-model="newTemplate.category" class="w-full border p-2 rounded">
+                        <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
+                    </select>
+                    <input v-model.number="newTemplate.price" type="number" class="w-full border p-2 rounded" placeholder="价格">
+                    
                     <div class="bg-gray-50 p-4 rounded-lg border">
-                        <h3 class="font-bold text-gray-700 mb-2">Prompt 配置 (JSON)</h3>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Base Prompt (通用画质/光影)</label>
-                            <textarea v-model="newTemplate.prompt_config.base_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Variable Prompt (衣服/动作/场景)</label>
-                            <textarea v-model="newTemplate.prompt_config.variable_prompt" rows="3" class="w-full border p-2 rounded text-sm"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Negative Prompt (负面词)</label>
-                            <textarea v-model="newTemplate.prompt_config.negative_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
-                        </div>
+                        <h3 class="font-bold text-gray-700 mb-2">Prompt 配置</h3>
+                        <textarea v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Base Prompt"></textarea>
+                        <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Variable Prompt"></textarea>
                     </div>
-
-                    <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition">
+                    <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold">
                         {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
                     </button>
                 </div>
@@ -156,46 +132,82 @@
                 <div class="animate-spin text-6xl mb-4">⏳</div>
                 <h3 class="text-2xl mb-2">AI 正在绘制...</h3>
                 <p class="text-gray-400">预计等待 30 秒</p>
-                <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden relative">
-                    <div class="absolute top-0 left-0 h-full bg-yellow-500 animate-[progress_30s_ease-out_forwards] w-full origin-left"></div>
-                </div>
             </div>
             <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
                 <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 完成!</h3>
-                <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
+                <div class="polaroid w-80 transform rotate-3 scale-110 z-10 mb-8">
                     <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
-                    <div class="mt-2 px-2"><a :href="processingOrder.result_image_url" download target="_blank" class="text-blue-600 text-sm font-bold">下载原图</a></div>
                 </div>
-                <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black">关闭</button>
+                <div class="space-x-4">
+                    <a :href="processingOrder.result_image_url" download target="_blank" class="px-6 py-2 bg-blue-600 rounded-full font-bold">下载原图</a>
+                    <button @click="processingOrder = null" class="px-6 py-2 border border-white rounded-full">关闭</button>
+                </div>
             </div>
-            <div v-else-if="processingOrder.status === 'FAILED'" class="text-center">
-                <div class="text-6xl mb-4">❌</div>
-                <h3>生成失败</h3>
-                <button @click="processingOrder = null" class="mt-6 px-8 py-2 border border-white rounded-full">关闭</button>
+            <div v-else class="text-center">
+                <h3 class="text-2xl mb-2">生成失败</h3>
+                <button @click="processingOrder = null" class="mt-4 px-6 py-2 border border-white rounded-full">关闭</button>
             </div>
         </div>
 
     </main>
 
-    <!-- 用户设置模态框 -->
+    <!-- 认证模态框 (Login/Register) -->
+    <div v-if="showAuthModal" class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center" @click.self="showAuthModal = false">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h2 class="text-2xl font-bold mb-6 text-center">{{ authMode === 'login' ? '欢迎回来' : '创建账号' }}</h2>
+            <div class="space-y-4">
+                <input v-model="authForm.username" type="text" placeholder="邮箱" class="w-full border p-3 rounded-lg">
+                <input v-model="authForm.password" type="password" placeholder="密码" class="w-full border p-3 rounded-lg">
+                
+                <button @click="handleAuth" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-800 transition">
+                    {{ authMode === 'login' ? '登录' : '注册并登录' }}
+                </button>
+                
+                <p class="text-center text-sm text-gray-500 cursor-pointer hover:text-blue-600" @click="authMode = authMode === 'login' ? 'register' : 'login'">
+                    {{ authMode === 'login' ? '没有账号？去注册' : '已有账号？去登录' }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户档案/充值模态框 -->
     <div v-if="showUserModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showUserModal = false">
         <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
-            <h3 class="text-xl font-bold mb-4">我的档案</h3>
-            <div class="flex flex-col items-center mb-6">
-                <div class="w-24 h-24 rounded-full bg-gray-200 overflow-hidden mb-2 border-4 border-yellow-500 relative">
-                    <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
-                    <div v-else class="w-full h-full flex items-center justify-center text-4xl">👤</div>
-                </div>
-                <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 请先上传正脸照</p>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">我的档案</h3>
+                <button @click="showUserModal = false" class="text-gray-400 hover:text-black">✕</button>
             </div>
-            <div class="space-y-3">
-                <input type="file" @change="handleUserFileUpload" accept="image/*" class="w-full border p-2 rounded">
-                <select v-model="tempGender" class="w-full border p-2 rounded">
+            
+            <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                <div class="w-16 h-16 rounded-full bg-gray-200 overflow-hidden border-2 border-yellow-500">
+                    <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
+                    <div v-else class="w-full h-full flex items-center justify-center text-2xl">👤</div>
+                </div>
+                <div>
+                    <p class="font-bold">{{ user.username }}</p>
+                    <p class="text-sm text-gray-500">余额: <span class="text-yellow-600 font-bold text-lg">{{ user.credits }}</span></p>
+                </div>
+            </div>
+
+            <!-- 充值区域 -->
+            <div class="mb-6">
+                <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">充值中心 (Mock)</h4>
+                <div class="grid grid-cols-3 gap-2">
+                    <button @click="topUp(10)" class="border border-yellow-500 text-yellow-600 rounded py-1 hover:bg-yellow-50">¥10</button>
+                    <button @click="topUp(50)" class="border border-yellow-500 text-yellow-600 rounded py-1 hover:bg-yellow-50">¥50</button>
+                    <button @click="topUp(100)" class="border border-yellow-500 text-yellow-600 rounded py-1 hover:bg-yellow-50">¥100</button>
+                </div>
+            </div>
+            
+            <div class="space-y-3 border-t pt-4">
+                <h4 class="text-xs font-bold text-gray-400 uppercase">更新基准照</h4>
+                <input type="file" @change="handleUserFileUpload" accept="image/*" class="w-full border p-2 rounded text-sm">
+                <select v-model="tempGender" class="w-full border p-2 rounded text-sm">
                     <option value="female">女 (Female)</option>
                     <option value="male">男 (Male)</option>
                 </select>
-                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold flex justify-center">
-                    {{ isUploading ? '上传中...' : '保存档案' }}
+                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm">
+                    {{ isUploading ? '上传中...' : '保存照片' }}
                 </button>
             </div>
         </div>
@@ -211,19 +223,24 @@
         setup() {
             // State
             const currentView = ref('camera');
-            const user = ref({ balance: 0, face_image_url: null });
+            const isLoggedIn = ref(false);
+            const user = ref({ credits: 0, face_image_url: null, is_superuser: false });
+            const token = ref(localStorage.getItem('token') || '');
+            
+            // Auth State
+            const showAuthModal = ref(false);
+            const authMode = ref('login');
+            const authForm = reactive({ username: '', password: '' });
+
+            // App State
             const currentCameraPhoto = ref(null);
             const galleryTemplates = ref([]);
             const showUserModal = ref(false);
             const processingOrder = ref(null);
             const isLoading = ref(false);
             const isUploading = ref(false);
-            
-            // User Upload
             const userFile = ref(null);
             const tempGender = ref('female');
-            
-            // Filter
             const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
             const activeCategory = ref('全部');
 
@@ -231,20 +248,86 @@
             const isAdminSubmitting = ref(false);
             const newTemplate = reactive({
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
-                prompt_config: { base_prompt: 'High quality, 8k', variable_prompt: '', negative_prompt: 'nsfw, low quality' }
+                prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
             });
 
-            // --- Init ---
-            const init = async () => {
+            // Axios Interceptor for Token
+            axios.interceptors.request.use(config => {
+                if (token.value) config.headers.Authorization = `Bearer ${token.value}`;
+                return config;
+            });
+
+            // --- Auth Logic ---
+            const handleAuth = async () => {
+                try {
+                    let res;
+                    if (authMode.value === 'register') {
+                        // 注册
+                        await axios.post(`${API_BASE}/users/`, {
+                            email: authForm.username,
+                            password: authForm.password,
+                            username: authForm.username.split('@')[0]
+                        });
+                        alert("注册成功，请登录");
+                        authMode.value = 'login';
+                        return;
+                    } 
+                    
+                    // 登录
+                    const formData = new FormData();
+                    formData.append('username', authForm.username);
+                    formData.append('password', authForm.password);
+                    res = await axios.post(`${API_BASE}/auth/login/access-token`, formData);
+                    
+                    token.value = res.data.access_token;
+                    localStorage.setItem('token', token.value);
+                    isLoggedIn.value = true;
+                    showAuthModal.value = false;
+                    await fetchUserInfo();
+                    loadGallery();
+                } catch (e) {
+                    alert("操作失败: " + (e.response?.data?.detail || e.message));
+                }
+            };
+
+            const logout = () => {
+                token.value = '';
+                localStorage.removeItem('token');
+                isLoggedIn.value = false;
+                user.value = {};
+                showAuthModal.value = true;
+            };
+
+            const fetchUserInfo = async () => {
                 try {
                     const res = await axios.get(`${API_BASE}/users/me`);
                     user.value = res.data;
                     tempGender.value = user.value.gender || 'female';
-                } catch(e) { console.error("Network Error", e); }
-                loadGallery();
+                    isLoggedIn.value = true;
+                } catch (e) {
+                    console.error("Fetch user failed", e);
+                    logout();
+                }
             };
 
-            // --- Camera ---
+            const topUp = async (amount) => {
+                try {
+                    const res = await axios.post(`${API_BASE}/users/topup`, { amount: amount });
+                    user.value = res.data;
+                    alert(`充值 ¥${amount} 成功！`);
+                } catch(e) { alert("充值失败"); }
+            };
+
+            // --- App Logic ---
+            const init = async () => {
+                if (token.value) {
+                    await fetchUserInfo();
+                    loadGallery();
+                } else {
+                    showAuthModal.value = true; // 强制登录
+                }
+            };
+
             const triggerCamera = async () => {
                 isLoading.value = true;
                 try {
@@ -254,15 +337,23 @@
                 } catch(e) { alert("暂无模版"); isLoading.value = false; }
             };
 
-            // --- Order ---
             const createOrder = async (template) => {
-                if (!user.value.face_image_url) { showUserModal.value = true; return; }
-                if (user.value.balance < template.price) { alert("余额不足"); return; }
+                if (!user.value.face_image_url) { 
+                    alert("请先在个人中心上传您的正脸照片！"); 
+                    showUserModal.value = true; 
+                    return; 
+                }
+                if (user.value.credits < template.price) { 
+                    alert(`余额不足，请充值！`); 
+                    showUserModal.value = true;
+                    return; 
+                }
                 if (!confirm(`确认制作？消耗 ¥${template.price}`)) return;
 
                 try {
-                    const res = await axios.post(`${API_BASE}/orders`, { template_id: template.id });
-                    user.value.balance -= template.price;
+                    const res = await axios.post(`${API_BASE}/orders/`, { template_id: template.id });
+                    // 乐观更新
+                    user.value.credits -= template.price;
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
                 } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
@@ -281,7 +372,6 @@
                 }, 3000);
             };
 
-            // --- User Upload ---
             const handleUserFileUpload = (e) => userFile.value = e.target.files[0];
             const updateUserFace = async () => {
                 if(!userFile.value) return alert("请选图");
@@ -293,20 +383,17 @@
                     const res = await axios.post(`${API_BASE}/users/face`, fd);
                     user.value.face_image_url = res.data.url;
                     user.value.gender = tempGender.value;
-                    showUserModal.value = false;
-                    alert("档案更新成功");
+                    alert("照片更新成功");
                 } catch(e) { alert("上传失败"); } 
                 finally { isUploading.value = false; }
             };
 
-            // --- Admin Upload ---
             const handleAdminFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const fd = new FormData();
                 fd.append('file', file);
                 try {
-                    // 使用新的通用上传接口
                     const res = await axios.post(`${API_BASE}/utils/upload`, fd);
                     newTemplate.cover_image_url = res.data.url;
                 } catch(e) { alert("图片上传失败"); }
@@ -318,30 +405,27 @@
                 try {
                     await axios.post(`${API_BASE}/admin/templates/`, newTemplate);
                     alert("✅ 上架成功！");
-                    // 重置表单
-                    newTemplate.title = '';
-                    newTemplate.cover_image_url = '';
-                    loadGallery(); // 刷新画廊
+                    loadGallery(); 
                 } catch(e) { alert("上架失败: " + e.message); } 
                 finally { isAdminSubmitting.value = false; }
             };
 
-            // --- Gallery ---
             const loadGallery = async (cat='') => {
-                const url = cat && cat!=='全部' ? `${API_BASE}/templates?category=${cat}` : `${API_BASE}/templates`;
+                const url = cat && cat!=='全部' ? `${API_BASE}/templates/?category=${cat}` : `${API_BASE}/templates/`;
                 const res = await axios.get(url);
                 galleryTemplates.value = res.data;
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
-            const startDrag = () => {};
 
             onMounted(init);
 
             return {
-                currentView, user, currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
+                currentView, isLoggedIn, user, token, showAuthModal, authMode, authForm,
+                currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
                 isLoading, isUploading, tempGender, categories, activeCategory,
                 newTemplate, isAdminSubmitting,
-                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory, startDrag,
+                handleAuth, logout, topUp,
+                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
                 handleAdminFileUpload, submitNewTemplate
             };
         }
