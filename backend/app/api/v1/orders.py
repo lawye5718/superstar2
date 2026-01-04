@@ -9,7 +9,7 @@ from datetime import datetime
 from app.core.database import SyncSessionLocal
 from app.core.dependencies import get_current_user_id
 from app.models.database import Order, User, Template
-from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
+from app.schemas.order import OrderCreate, OrderResponse
 
 router = APIRouter()
 

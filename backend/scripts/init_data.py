@@ -16,6 +16,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db_data():
     """Initialize database with sample data"""
+    # First, create all tables
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created")
+    
     db = SessionLocal()
     
     try:
