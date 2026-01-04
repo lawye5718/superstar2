@@ -96,6 +96,10 @@ class Template(Base):
     # Display images for waiting screen
     display_image_urls = Column(JSON, default=lambda: [], nullable=False)  # Array of URLs
     
+    # Pricing and usage
+    price = Column(Numeric(10, 2), default=9.9, nullable=False)
+    usage_count = Column(Integer, default=0, nullable=False)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -213,7 +217,9 @@ class Order(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
     user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
     package_id = Column(UUID(as_uuid=False), ForeignKey("packages.id"), nullable=True)
+    template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=True)  # 添加模板ID
     credits_purchased = Column(Integer, nullable=False)  # Credits added to user account
+    credits_consumed = Column(Integer, default=0, nullable=False)  # 消耗积分
     
     amount = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(OrderStatusEnum), default=OrderStatusEnum.PENDING, nullable=False, index=True)
@@ -223,6 +229,9 @@ class Order(Base):
     
     # Transaction ID from payment gateway
     transaction_id = Column(String(255), nullable=True, unique=True, index=True)
+    
+    # Result image URL
+    result_image_url = Column(String(500), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

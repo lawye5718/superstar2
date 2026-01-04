@@ -20,6 +20,8 @@ sync_engine = create_engine(
     max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=300,
+    # 动态配置连接参数，仅在使用SQLite时添加check_same_thread
+    **{"connect_args": {"check_same_thread": False}} if settings.DATABASE_SYNC_URL.startswith("sqlite") else {}
 )
 
 # Asynchronous engine for FastAPI operations
@@ -30,6 +32,8 @@ async_engine = create_async_engine(
     max_overflow=10,
     pool_pre_ping=True,
     pool_recycle=300,
+    # 动态配置连接参数，仅在使用SQLite时添加check_same_thread
+    **{"connect_args": {"check_same_thread": False}} if settings.DATABASE_URL.startswith("sqlite") else {}
 )
 
 # Session factories

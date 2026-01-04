@@ -10,6 +10,8 @@ from app.core.config import get_settings
 from app.core.database import init_db, close_db
 from app.api.v1.router import api_router
 from app.core.exceptions import SuperstarException
+import os
+from scripts.init_data import init_db_data
 
 settings = get_settings()
 
@@ -19,6 +21,8 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     await init_db()
+    # Initialize sample data
+    init_db_data()
     yield
     # Shutdown
     await close_db()
@@ -68,6 +72,9 @@ app.add_middleware(LoggingMiddleware)
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
+# Mount static files for uploaded images
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Static files (if static_dist exists)
 static_dist_path = Path(__file__).parent.parent / "static_dist"
 if static_dist_path.exists() and (static_dist_path / "index.html").exists():
@@ -100,7 +107,7 @@ else:
     # Frontend not built yet - show helpful message
     @app.get("/")
     async def read_root():
-        """Frontend not available"""
+        """Frontend not available"
         return {
             "message": "Superstar V15.1 API",
             "version": settings.APP_VERSION,

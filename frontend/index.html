@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我是大明星 - Superstar AI</title>
+    <title>我是大明星 AI - Superstar</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- Google Fonts for Retro feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        .retro-font { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        }
+        .retro-font { font-family: 'Abril Fatface', cursive; }
+        .body-font { font-family: 'Lato', sans-serif; }
+        
+        /* 相机动画 */
         .camera-shutter-anim {
             animation: flash 0.2s;
         }
@@ -19,6 +22,8 @@
             50% { opacity: 0; background-color: white; }
             100% { opacity: 1; }
         }
+        
+        /* 照片吐出动画 */
         .photo-print-enter-active {
             transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -26,6 +31,8 @@
             transform: translateY(-100px) scale(0.8);
             opacity: 0;
         }
+        
+        /* 拍立得相框 */
         .polaroid {
             background: white;
             padding: 1rem 1rem 3rem 1rem;
@@ -39,13 +46,13 @@
         }
     </style>
 </head>
-<body class="bg-stone-100 retro-font text-stone-800 h-screen overflow-hidden">
+<body class="bg-stone-100 body-font text-stone-800 h-screen overflow-hidden">
 
 <div id="app" class="h-full flex flex-col">
 
     <!-- 导航栏 -->
     <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
-        <div class="text-2xl font-bold text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
+        <div class="text-2xl retro-font text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
         <div class="space-x-4 text-sm">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
@@ -67,7 +74,7 @@
                     <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing" 
                          @mousedown="startDrag" @touchstart="startDrag">
                         <img :src="currentCameraPhoto.cover_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
-                        <div class="text-center mt-4 text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
+                        <div class="text-center mt-4 retro-font text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
                     </div>
                     <div v-else class="text-white text-opacity-50 text-center">
                         <div class="text-6xl mb-4">📷</div>
@@ -96,7 +103,7 @@
         <div v-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
             <!-- 搜索与筛选 -->
             <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4">
-                <h2 class="text-3xl mb-4">热门风格</h2>
+                <h2 class="text-3xl retro-font mb-4">Trending Styles</h2>
                 <div class="flex gap-2 overflow-x-auto pb-2">
                     <button v-for="cat in categories" :key="cat" @click="filterCategory(cat)"
                             class="px-4 py-1 rounded-full border border-stone-300 hover:bg-stone-800 hover:text-white transition-colors"
@@ -122,17 +129,18 @@
 
         <!-- 3. 等待/结果遮罩层 -->
         <div v-if="processingOrder" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center text-white">
-            <div v-if="processingOrder.status === 'PROCESSING'" class="text-center">
+            <div v-if="processingOrder.status === 'PROCESSING' || processingOrder.status === 'PENDING'" class="text-center">
                 <div class="animate-spin text-6xl mb-4">⏳</div>
                 <h3 class="text-2xl mb-2">正在为您打造大片...</h3>
-                <p class="text-gray-400">大模型正在绘图，约需 30 秒</p>
-                <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden">
-                    <div class="h-full bg-yellow-500 animate-pulse w-full origin-left duration-[30s] transition-transform" style="transform: scaleX(0.1)"></div>
+                <p class="text-gray-400">AI 正在绘图，请耐心等待 (约 30 秒)</p>
+                <!-- 进度条动画 -->
+                <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden relative">
+                    <div class="absolute top-0 left-0 h-full bg-yellow-500 animate-[progress_30s_ease-out_forwards] w-full origin-left"></div>
                 </div>
             </div>
             
             <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
-                <h3 class="text-3xl text-yellow-500 mb-6">✨ 生成完成!</h3>
+                <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 生成完成!</h3>
                 <div class="flex gap-4 items-center justify-center">
                     <div class="polaroid w-64 transform -rotate-3">
                         <p class="text-gray-500 mb-2 text-xs">原图参考</p>
@@ -140,14 +148,24 @@
                     </div>
                     <div class="text-2xl">➡️</div>
                     <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
-                        <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover">
+                        <!-- 显示生成结果 -->
+                        <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
                         <div class="mt-2 flex justify-between items-center px-2">
                             <span class="text-xs text-gray-500">{{ new Date().toLocaleDateString() }}</span>
-                            <button class="text-blue-600 text-sm font-bold">下载 HD</button>
+                            <a :href="processingOrder.result_image_url" download target="_blank" class="text-blue-600 text-sm font-bold">下载 HD</a>
                         </div>
                     </div>
                 </div>
                 <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black transition">
+                    关闭
+                </button>
+            </div>
+
+            <div v-else-if="processingOrder.status === 'FAILED'" class="text-center">
+                <div class="text-6xl mb-4">❌</div>
+                <h3 class="text-2xl mb-2">生成失败</h3>
+                <p class="text-gray-400">积分已退回，请稍后重试</p>
+                <button @click="processingOrder = null" class="mt-6 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black transition">
                     关闭
                 </button>
             </div>
@@ -169,7 +187,8 @@
             
             <div class="space-y-3">
                 <label class="block text-sm font-bold">上传正脸照 (必须清晰)</label>
-                <input type="text" v-model="tempFaceUrl" placeholder="输入图片URL (模拟上传)" class="w-full border p-2 rounded">
+                <!-- 真实文件上传 Input -->
+                <input type="file" @change="handleFileUpload" accept="image/*" class="w-full border p-2 rounded">
                 
                 <label class="block text-sm font-bold">性别</label>
                 <select v-model="tempGender" class="w-full border p-2 rounded">
@@ -177,8 +196,9 @@
                     <option value="male">男 (Male)</option>
                 </select>
                 
-                <button @click="updateUserFace" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold mt-4">
-                    保存档案
+                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold mt-4 flex justify-center items-center">
+                    <span v-if="isUploading" class="animate-spin mr-2">⏳</span>
+                    {{ isUploading ? '上传中...' : '保存档案' }}
                 </button>
             </div>
         </div>
@@ -187,176 +207,158 @@
 </div>
 
 <script>
-    const API_BASE = 'http://localhost:8000/api/v1'; // 对应 FastAPI 地址
+    // 真实后端地址
+    const API_BASE = 'http://localhost:8000/api/v1'; 
 
     const { createApp, ref, onMounted } = Vue;
 
     createApp({
         setup() {
             const currentView = ref('camera');
-            const user = ref({ balance: 100, face_image_url: null, gender: 'female' });
+            const user = ref({ balance: 0, face_image_url: null });
             const currentCameraPhoto = ref(null);
             const galleryTemplates = ref([]);
             const isLoading = ref(false);
             const showUserModal = ref(false);
             const processingOrder = ref(null);
             
-            // 临时表单数据
-            const tempFaceUrl = ref('');
+            // 表单数据
+            const selectedFile = ref(null);
             const tempGender = ref('female');
+            const isUploading = ref(false);
+            
             const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
             const activeCategory = ref('全部');
 
             // --- 核心逻辑 ---
 
-            // 1. 初始化
+            // 1. 初始化: 获取真实用户信息和模版
             const init = async () => {
-                // 模拟加载画廊
+                try {
+                    const res = await axios.get(`${API_BASE}/users/me`);
+                    user.value = res.data;
+                    tempGender.value = user.value.gender || 'female';
+                } catch (e) { 
+                    console.error("Login/Network Error:", e);
+                    if (!e.response) alert("无法连接到后端服务器，请确认 backend 是否运行在 localhost:8000");
+                }
                 loadGallery();
             };
 
-            // 2. 复古相机逻辑
+            // 2. 复古相机: 随机获取模版
             const triggerCamera = async () => {
                 isLoading.value = true;
-                // 播放快门音效 (可选)
                 try {
-                    // 模拟获取随机模板
-                    const mockTemplates = [
-                        {
-                            id: 1,
-                            title: "军绿色毛呢大衣复古写真",
-                            cover_image_url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
-                            price: 9.9,
-                            usage_count: 1250
-                        },
-                        {
-                            id: 2,
-                            title: "祖母绿缎面礼裙轻奢",
-                            cover_image_url: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500&q=80",
-                            price: 19.9,
-                            usage_count: 890
-                        },
-                        {
-                            id: 3,
-                            title: "网球风运动写真",
-                            cover_image_url: "https://images.unsplash.com/photo-1530915512336-367958254703?w=500&q=80",
-                            price: 14.9,
-                            usage_count: 642
-                        }
-                    ];
-                    const randomTemplate = mockTemplates[Math.floor(Math.random() * mockTemplates.length)];
-                    currentCameraPhoto.value = null; // Reset for animation
+                    const res = await axios.get(`${API_BASE}/templates/random`);
+                    currentCameraPhoto.value = null; 
                     setTimeout(() => {
-                        currentCameraPhoto.value = randomTemplate;
+                        currentCameraPhoto.value = res.data;
                         isLoading.value = false;
-                    }, 300); // 模拟快门延迟
+                    }, 300);
                 } catch (e) {
-                    alert("获取图片失败");
+                    console.error(e);
+                    alert("获取模版失败，请稍后重试");
                     isLoading.value = false;
                 }
             };
 
-            // 3. 订单逻辑
+            // 3. 处理文件选择
+            const handleFileUpload = (event) => {
+                selectedFile.value = event.target.files[0];
+            };
+
+            // 4. 上传用户头像 (使用 FormData)
+            const updateUserFace = async () => {
+                if (!selectedFile.value) {
+                    alert("请选择一张图片");
+                    return;
+                }
+                
+                isUploading.value = true;
+                const formData = new FormData();
+                formData.append('file', selectedFile.value);
+                formData.append('gender', tempGender.value);
+
+                try {
+                    const res = await axios.post(`${API_BASE}/users/face`, formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    
+                    // 更新本地状态
+                    user.value.face_image_url = res.data.url;
+                    user.value.gender = tempGender.value;
+                    showUserModal.value = false;
+                    alert("档案更新成功！");
+                } catch (e) {
+                    console.error(e);
+                    alert("上传失败: " + (e.response?.data?.detail || e.message));
+                } finally {
+                    isUploading.value = false;
+                }
+            };
+
+            // 5. 创建订单
             const createOrder = async (template) => {
-                // 检查头像
                 if (!user.value.face_image_url) {
                     alert("请先上传您的正脸照片！");
                     showUserModal.value = true;
                     return;
                 }
-                
-                // 检查余额
                 if (user.value.balance < template.price) {
                     alert(`余额不足，需支付 ¥${template.price}`);
-                    // 模拟充值
-                    user.value.balance += 100;
                     return;
                 }
 
                 if (!confirm(`确定消耗 ¥${template.price} 制作同款吗？`)) return;
 
                 try {
-                    // 模拟创建订单
-                    const order = {
-                        id: 'mock-order-id',
-                        status: 'PROCESSING',
-                        amount: template.price,
-                        created_at: new Date()
-                    };
+                    const res = await axios.post(`${API_BASE}/orders`, { template_id: template.id });
+                    const order = res.data;
                     
                     // 进入等待界面
                     processingOrder.value = { ...order, template };
+                    pollOrderStatus(order.id);
                     
-                    // 模拟处理过程
-                    setTimeout(() => {
-                        processingOrder.value.status = 'COMPLETED';
-                        processingOrder.value.result_image_url = "https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80";
-                    }, 3000);
-                    
-                    // 更新本地余额
+                    // 乐观更新余额
                     user.value.balance -= template.price;
                 } catch (e) {
-                    alert("下单失败");
+                    console.error(e);
+                    alert(e.response?.data?.detail || "下单失败");
                 }
             };
 
-            // 4. 用户资料
-            const updateUserFace = async () => {
-                if (!tempFaceUrl.value) return;
-                user.value.face_image_url = tempFaceUrl.value;
-                user.value.gender = tempGender.value;
-                showUserModal.value = false;
-                alert("档案更新成功！");
+            // 6. 轮询订单状态
+            const pollOrderStatus = async (orderId) => {
+                const interval = setInterval(async () => {
+                    try {
+                        const res = await axios.get(`${API_BASE}/orders/${orderId}`);
+                        const status = res.data.status;
+                        
+                        // 更新状态显示
+                        if (processingOrder.value) {
+                            processingOrder.value.status = status;
+                        }
+
+                        if (status === 'COMPLETED') {
+                            processingOrder.value.result_image_url = res.data.result_image_url;
+                            clearInterval(interval);
+                        } else if (status === 'FAILED') {
+                            clearInterval(interval);
+                        }
+                    } catch (e) {
+                        console.error("Polling error", e);
+                        clearInterval(interval);
+                    }
+                }, 3000); // 每3秒轮询一次
             };
 
-            // 5. 画廊
+            // 7. 画廊逻辑
             const loadGallery = async (cat = '') => {
-                // 模拟数据
-                const mockData = [
-                    {
-                        id: 1,
-                        title: "军绿色毛呢大衣复古写真",
-                        cover_image_url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
-                        price: 9.9,
-                        usage_count: 1250
-                    },
-                    {
-                        id: 2,
-                        title: "祖母绿缎面礼裙轻奢",
-                        cover_image_url: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=500&q=80",
-                        price: 19.9,
-                        usage_count: 890
-                    },
-                    {
-                        id: 3,
-                        title: "网球风运动写真",
-                        cover_image_url: "https://images.unsplash.com/photo-1530915512336-367958254703?w=500&q=80",
-                        price: 14.9,
-                        usage_count: 642
-                    },
-                    {
-                        id: 4,
-                        title: "森系清新风格",
-                        cover_image_url: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=500&q=80",
-                        price: 12.9,
-                        usage_count: 721
-                    },
-                    {
-                        id: 5,
-                        title: "职场精英风",
-                        cover_image_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&q=80",
-                        price: 16.9,
-                        usage_count: 583
-                    },
-                    {
-                        id: 6,
-                        title: "海边度假风",
-                        cover_image_url: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=500&q=80",
-                        price: 18.9,
-                        usage_count: 432
-                    }
-                ];
-                galleryTemplates.value = mockData;
+                try {
+                    const url = cat && cat !== '全部' ? `${API_BASE}/templates?category=${cat}` : `${API_BASE}/templates`;
+                    const res = await axios.get(url);
+                    galleryTemplates.value = res.data;
+                } catch (e) { console.error("Gallery load failed", e); }
             };
             
             const filterCategory = (cat) => {
@@ -364,22 +366,26 @@
                 loadGallery(cat);
             };
 
-            // 简单的拖拽交互 (Camera)
             const startDrag = (e) => {
-                // 此处可添加手势逻辑，配合 interact.js 库更好
-                console.log("Dragging photo...");
+                console.log("Dragging...");
             };
 
             onMounted(init);
 
             return {
                 currentView, user, currentCameraPhoto, galleryTemplates, isLoading,
-                showUserModal, tempFaceUrl, tempGender, processingOrder,
+                showUserModal, tempGender, processingOrder, isUploading,
                 categories, activeCategory,
-                triggerCamera, createOrder, updateUserFace, filterCategory, startDrag
+                triggerCamera, createOrder, updateUserFace, handleFileUpload, filterCategory, startDrag
             };
         }
     }).mount('#app');
 </script>
+<style>
+@keyframes progress {
+    0% { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+}
+</style>
 </body>
 </html>
