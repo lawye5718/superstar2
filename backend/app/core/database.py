@@ -27,7 +27,6 @@ sync_engine = create_engine(
 # Asynchronous engine for FastAPI operations
 async_engine = create_async_engine(
     settings.DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,

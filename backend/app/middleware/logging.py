@@ -14,18 +14,23 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # Log the incoming request
         logging.info(f"Request: {request.method} {request.url}")
         
+        response = None
         try:
             response = await call_next(request)
-        except Exception as e:
-            # Log any exceptions
-            logging.error(f"Request failed: {request.method} {request.url} - {str(e)}")
-            raise
-        finally:
+            
             # Calculate process time
             process_time = time.time() - start_time
             response.headers["X-Process-Time"] = str(process_time)
             
             # Log the response
             logging.info(f"Response: {response.status_code} - Process time: {process_time:.4f}s")
-        
-        return response
+            
+            return response
+        except Exception as e:
+            # Calculate process time even on error
+            process_time = time.time() - start_time
+            
+            # Log any exceptions
+            logging.error(f"Request failed: {request.method} {request.url} - {str(e)}")
+            logging.error(f"Process time before error: {process_time:.4f}s")
+            raise

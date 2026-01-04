@@ -1,7 +1,7 @@
 """SQLAlchemy database models"""
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, Numeric, JSON, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PostgresUUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -9,6 +9,21 @@ import uuid
 from enum import Enum as PyEnum
 
 from app.core.database import Base
+from app.core.config import get_settings
+
+settings = get_settings()
+
+# Use JSONB for PostgreSQL, JSON for SQLite
+JSONType = JSONB if "postgresql" in settings.DATABASE_URL else JSON
+
+# Use UUID for PostgreSQL, String for SQLite
+def UUID(as_uuid=False):
+    """Return appropriate UUID type based on database"""
+    if "postgresql" in settings.DATABASE_URL:
+        return PostgresUUID(as_uuid=as_uuid)
+    else:
+        # SQLite doesn't have UUID type, use String instead
+        return String(36)
 
 
 def generate_uuid():
@@ -91,8 +106,8 @@ class Template(Base):
     gender = Column(SQLEnum(GenderEnum), nullable=False, index=True)
     tags = Column(JSON, default=lambda: [], nullable=False, index=True)  # Array of strings
     
-    # Template configuration (V14 format stored as JSONB)
-    config = Column(JSONB, nullable=False)
+    # Template configuration (V14 format stored as JSON/JSONB)
+    config = Column(JSONType, nullable=False)
     
     # Approval status
     is_approved = Column(Boolean, default=False, nullable=False, index=True)
@@ -140,7 +155,7 @@ class PackageTemplateRule(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
     package_id = Column(UUID(as_uuid=False), ForeignKey("packages.id"), nullable=False, index=True)
     rule_type = Column(SQLEnum(PackageRuleTypeEnum), nullable=False)
-    rule_config = Column(JSONB, nullable=False)  # e.g., {"tag": "古风"} or {"template_ids": ["uuid1", "uuid2"]}
+    rule_config = Column(JSONType, nullable=False)  # e.g., {"tag": "古风"} or {"template_ids": ["uuid1", "uuid2"]}
     
     # Optional: link to specific template (for FIXED type)
     template_id = Column(UUID(as_uuid=False), ForeignKey("prompts.id"), nullable=True)
@@ -253,7 +268,7 @@ class AuditLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     actor_user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=True)
     action_type = Column(String(100), nullable=False, index=True)
-    details = Column(JSONB, nullable=True)
+    details = Column(JSONType, nullable=True)
 
 
 class TemplateFavorite(Base):
@@ -281,5 +296,5 @@ class SystemSetting(Base):
     __tablename__ = "system_settings"
     
     key = Column(String(100), primary_key=True)
-    value = Column(JSONB, nullable=False)
+    value = Column(JSONType, nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
