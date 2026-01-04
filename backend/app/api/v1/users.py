@@ -1,10 +1,10 @@
 """User API routes"""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import Any
-import shutil
+import aiofiles
 import os
 import uuid
 
@@ -47,6 +47,7 @@ def read_user_me(
 
 @router.post("/face", response_model=dict)
 async def upload_face(
+    request: Request,
     file: UploadFile = File(...),  # 接收文件
     gender: str = Form(...),       # 接收表单字段
     current_user_id: str = Depends(get_current_user_id)
@@ -66,19 +67,23 @@ async def upload_face(
     # 注意：生产环境这里应上传到 S3/OSS
     file_extension = os.path.splitext(file.filename)[1]
     new_filename = f"{uuid.uuid4()}{file_extension}"
-    file_location = f"{upload_dir}/{new_filename}"
+    file_path = os.path.join(upload_dir, new_filename)
     
+    # 4. 异步写入文件 (解决阻塞问题)
     try:
-        with open(file_location, "wb+") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            # 分块读取，防止内存溢出
+            while content := await file.read(1024 * 1024):  # 1MB chunks
+                await out_file.write(content)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File save failed: {str(e)}")
         
-    # 4. 生成访问 URL
-    # 假设后端运行在 localhost:8000
-    file_url = f"http://localhost:8000/{file_location}"
+    # 5. 动态生成 URL (解决 localhost 硬编码问题)
+    # request.base_url 会自动根据访问的域名/IP变化
+    base_url = str(request.base_url).rstrip("/")
+    file_url = f"{base_url}/{file_path}"
     
-    # 5. 更新数据库
+    # 6. 更新数据库
     # 使用同步会话以兼容现有代码
     db = SyncSessionLocal()
     try:

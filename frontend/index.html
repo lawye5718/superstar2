@@ -7,43 +7,18 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <!-- Google Fonts for Retro feel -->
     <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <style>
         .retro-font { font-family: 'Abril Fatface', cursive; }
         .body-font { font-family: 'Lato', sans-serif; }
-        
-        /* 相机动画 */
-        .camera-shutter-anim {
-            animation: flash 0.2s;
-        }
-        @keyframes flash {
-            0% { opacity: 1; }
-            50% { opacity: 0; background-color: white; }
-            100% { opacity: 1; }
-        }
-        
-        /* 照片吐出动画 */
-        .photo-print-enter-active {
-            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .photo-print-enter-from {
-            transform: translateY(-100px) scale(0.8);
-            opacity: 0;
-        }
-        
-        /* 拍立得相框 */
-        .polaroid {
-            background: white;
-            padding: 1rem 1rem 3rem 1rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            transform: rotate(-2deg);
-            transition: transform 0.3s;
-        }
-        .polaroid:hover {
-            transform: rotate(0deg) scale(1.02);
-            z-index: 10;
-        }
+        .camera-shutter-anim { animation: flash 0.2s; }
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0; background-color: white; } 100% { opacity: 1; } }
+        .photo-print-enter-active { transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .photo-print-enter-from { transform: translateY(-100px) scale(0.8); opacity: 0; }
+        .polaroid { background: white; padding: 1rem 1rem 3rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: rotate(-2deg); transition: transform 0.3s; }
+        .polaroid:hover { transform: rotate(0deg) scale(1.02); z-index: 10; }
+        /* 进度条动画 */
+        @keyframes progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
     </style>
 </head>
 <body class="bg-stone-100 body-font text-stone-800 h-screen overflow-hidden">
@@ -53,26 +28,24 @@
     <!-- 导航栏 -->
     <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
         <div class="text-2xl retro-font text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
-        <div class="space-x-4 text-sm">
+        <div class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
-            <button @click="showUserModal = true">👤 余额: {{ user.balance }}</button>
+            <button @click="showUserModal = true" class="hover:text-yellow-200">👤 余额: {{ user.balance }}</button>
+            <!-- 隐蔽的管理员入口 -->
+            <button @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
         </div>
     </nav>
 
     <!-- 主视图区域 -->
-    <main class="flex-grow relative overflow-hidden">
+    <main class="flex-grow relative overflow-hidden bg-stone-100">
         
         <!-- 1. 复古相机视图 -->
         <div v-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-800 relative">
-            <!-- 相机机身装饰 -->
             <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/leather.png')] opacity-30"></div>
-            
-            <!-- 取景框/展示区 -->
             <div class="relative z-10 w-full max-w-md h-[60vh] flex items-center justify-center">
                 <transition name="photo-print">
-                    <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing" 
-                         @mousedown="startDrag" @touchstart="startDrag">
+                    <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing">
                         <img :src="currentCameraPhoto.cover_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
                         <div class="text-center mt-4 retro-font text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
                     </div>
@@ -82,18 +55,11 @@
                     </div>
                 </transition>
             </div>
-
-            <!-- 控制区 -->
             <div class="relative z-20 mt-8 flex flex-col items-center gap-4">
-                <!-- 快门按钮 -->
-                <button @click="triggerCamera" :disabled="isLoading"
-                        class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center">
+                <button @click="triggerCamera" :disabled="isLoading" class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center">
                     <div class="w-16 h-16 rounded-full border-2 border-red-800 bg-red-500"></div>
                 </button>
-                
-                <!-- 转化按钮 -->
-                <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)"
-                        class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
+                <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)" class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
                     ✨ 我也要同款 (¥{{ currentCameraPhoto.price }})
                 </button>
             </div>
@@ -101,7 +67,6 @@
 
         <!-- 2. 画廊视图 -->
         <div v-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
-            <!-- 搜索与筛选 -->
             <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4">
                 <h2 class="text-3xl retro-font mb-4">Trending Styles</h2>
                 <div class="flex gap-2 overflow-x-auto pb-2">
@@ -112,11 +77,8 @@
                     </button>
                 </div>
             </div>
-
-            <!-- 瀑布流 -->
-            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl"
-                     @click="createOrder(tpl)">
+            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
+                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl" @click="createOrder(tpl)">
                     <img :src="tpl.cover_image_url" class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                         <h3 class="text-white font-bold">{{ tpl.title }}</h3>
@@ -127,53 +89,95 @@
             </div>
         </div>
 
-        <!-- 3. 等待/结果遮罩层 -->
+        <!-- 3. 管理员后台 (Admin Ops) -->
+        <div v-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
+            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg mt-8">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">🛠️ 管理员上架后台</h2>
+                
+                <div class="space-y-4">
+                    <!-- 图片上传 -->
+                    <div>
+                        <label class="block text-sm font-bold mb-1">1. 样图上传 (Cover Image)</label>
+                        <input type="file" @change="handleAdminFileUpload" class="w-full border p-2 rounded">
+                        <div v-if="newTemplate.cover_image_url" class="mt-2 w-32 h-40 bg-gray-100 rounded overflow-hidden">
+                            <img :src="newTemplate.cover_image_url" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+
+                    <!-- 基础信息 -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-1">标题 (Title)</label>
+                            <input v-model="newTemplate.title" type="text" class="w-full border p-2 rounded" placeholder="e.g. 森林精灵">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1">分类 (Category)</label>
+                            <select v-model="newTemplate.category" class="w-full border p-2 rounded">
+                                <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold mb-1">价格 (Price)</label>
+                        <input v-model.number="newTemplate.price" type="number" class="w-full border p-2 rounded">
+                    </div>
+
+                    <!-- Prompt 配置 -->
+                    <div class="bg-gray-50 p-4 rounded-lg border">
+                        <h3 class="font-bold text-gray-700 mb-2">Prompt 配置 (JSON)</h3>
+                        
+                        <div class="mb-3">
+                            <label class="text-xs text-gray-500">Base Prompt (通用画质/光影)</label>
+                            <textarea v-model="newTemplate.prompt_config.base_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="text-xs text-gray-500">Variable Prompt (衣服/动作/场景)</label>
+                            <textarea v-model="newTemplate.prompt_config.variable_prompt" rows="3" class="w-full border p-2 rounded text-sm"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="text-xs text-gray-500">Negative Prompt (负面词)</label>
+                            <textarea v-model="newTemplate.prompt_config.negative_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
+                        </div>
+                    </div>
+
+                    <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition">
+                        {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 等待/结果遮罩层 -->
         <div v-if="processingOrder" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center text-white">
-            <div v-if="processingOrder.status === 'PROCESSING' || processingOrder.status === 'PENDING'" class="text-center">
+            <div v-if="['PROCESSING','PENDING'].includes(processingOrder.status)" class="text-center">
                 <div class="animate-spin text-6xl mb-4">⏳</div>
-                <h3 class="text-2xl mb-2">正在为您打造大片...</h3>
-                <p class="text-gray-400">AI 正在绘图，请耐心等待 (约 30 秒)</p>
-                <!-- 进度条动画 -->
+                <h3 class="text-2xl mb-2">AI 正在绘制...</h3>
+                <p class="text-gray-400">预计等待 30 秒</p>
                 <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden relative">
                     <div class="absolute top-0 left-0 h-full bg-yellow-500 animate-[progress_30s_ease-out_forwards] w-full origin-left"></div>
                 </div>
             </div>
-            
             <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
-                <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 生成完成!</h3>
-                <div class="flex gap-4 items-center justify-center">
-                    <div class="polaroid w-64 transform -rotate-3">
-                        <p class="text-gray-500 mb-2 text-xs">原图参考</p>
-                        <img :src="processingOrder.template.cover_image_url" class="w-full aspect-[3/4] object-cover filter grayscale opacity-50">
-                    </div>
-                    <div class="text-2xl">➡️</div>
-                    <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
-                        <!-- 显示生成结果 -->
-                        <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
-                        <div class="mt-2 flex justify-between items-center px-2">
-                            <span class="text-xs text-gray-500">{{ new Date().toLocaleDateString() }}</span>
-                            <a :href="processingOrder.result_image_url" download target="_blank" class="text-blue-600 text-sm font-bold">下载 HD</a>
-                        </div>
-                    </div>
+                <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 完成!</h3>
+                <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
+                    <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
+                    <div class="mt-2 px-2"><a :href="processingOrder.result_image_url" download target="_blank" class="text-blue-600 text-sm font-bold">下载原图</a></div>
                 </div>
-                <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black transition">
-                    关闭
-                </button>
+                <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black">关闭</button>
             </div>
-
             <div v-else-if="processingOrder.status === 'FAILED'" class="text-center">
                 <div class="text-6xl mb-4">❌</div>
-                <h3 class="text-2xl mb-2">生成失败</h3>
-                <p class="text-gray-400">积分已退回，请稍后重试</p>
-                <button @click="processingOrder = null" class="mt-6 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black transition">
-                    关闭
-                </button>
+                <h3>生成失败</h3>
+                <button @click="processingOrder = null" class="mt-6 px-8 py-2 border border-white rounded-full">关闭</button>
             </div>
         </div>
 
     </main>
 
-    <!-- 用户设置/上传模态框 -->
+    <!-- 用户设置模态框 -->
     <div v-if="showUserModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showUserModal = false">
         <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
             <h3 class="text-xl font-bold mb-4">我的档案</h3>
@@ -182,22 +186,15 @@
                     <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
                     <div v-else class="w-full h-full flex items-center justify-center text-4xl">👤</div>
                 </div>
-                <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 未上传基准照片</p>
+                <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 请先上传正脸照</p>
             </div>
-            
             <div class="space-y-3">
-                <label class="block text-sm font-bold">上传正脸照 (必须清晰)</label>
-                <!-- 真实文件上传 Input -->
-                <input type="file" @change="handleFileUpload" accept="image/*" class="w-full border p-2 rounded">
-                
-                <label class="block text-sm font-bold">性别</label>
+                <input type="file" @change="handleUserFileUpload" accept="image/*" class="w-full border p-2 rounded">
                 <select v-model="tempGender" class="w-full border p-2 rounded">
                     <option value="female">女 (Female)</option>
                     <option value="male">男 (Male)</option>
                 </select>
-                
-                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold mt-4 flex justify-center items-center">
-                    <span v-if="isUploading" class="animate-spin mr-2">⏳</span>
+                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold flex justify-center">
                     {{ isUploading ? '上传中...' : '保存档案' }}
                 </button>
             </div>
@@ -207,185 +204,148 @@
 </div>
 
 <script>
-    // 真实后端地址
     const API_BASE = 'http://localhost:8000/api/v1'; 
-
-    const { createApp, ref, onMounted } = Vue;
+    const { createApp, ref, onMounted, reactive } = Vue;
 
     createApp({
         setup() {
+            // State
             const currentView = ref('camera');
             const user = ref({ balance: 0, face_image_url: null });
             const currentCameraPhoto = ref(null);
             const galleryTemplates = ref([]);
-            const isLoading = ref(false);
             const showUserModal = ref(false);
             const processingOrder = ref(null);
-            
-            // 表单数据
-            const selectedFile = ref(null);
-            const tempGender = ref('female');
+            const isLoading = ref(false);
             const isUploading = ref(false);
             
+            // User Upload
+            const userFile = ref(null);
+            const tempGender = ref('female');
+            
+            // Filter
             const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
             const activeCategory = ref('全部');
 
-            // --- 核心逻辑 ---
+            // Admin State
+            const isAdminSubmitting = ref(false);
+            const newTemplate = reactive({
+                title: '', category: '复古', price: 9.9, cover_image_url: '',
+                prompt_config: { base_prompt: 'High quality, 8k', variable_prompt: '', negative_prompt: 'nsfw, low quality' }
+            });
 
-            // 1. 初始化: 获取真实用户信息和模版
+            // --- Init ---
             const init = async () => {
                 try {
                     const res = await axios.get(`${API_BASE}/users/me`);
                     user.value = res.data;
                     tempGender.value = user.value.gender || 'female';
-                } catch (e) { 
-                    console.error("Login/Network Error:", e);
-                    if (!e.response) alert("无法连接到后端服务器，请确认 backend 是否运行在 localhost:8000");
-                }
+                } catch(e) { console.error("Network Error", e); }
                 loadGallery();
             };
 
-            // 2. 复古相机: 随机获取模版
+            // --- Camera ---
             const triggerCamera = async () => {
                 isLoading.value = true;
                 try {
                     const res = await axios.get(`${API_BASE}/templates/random`);
-                    currentCameraPhoto.value = null; 
-                    setTimeout(() => {
-                        currentCameraPhoto.value = res.data;
-                        isLoading.value = false;
-                    }, 300);
-                } catch (e) {
-                    console.error(e);
-                    alert("获取模版失败，请稍后重试");
-                    isLoading.value = false;
-                }
+                    currentCameraPhoto.value = null;
+                    setTimeout(() => { currentCameraPhoto.value = res.data; isLoading.value = false; }, 300);
+                } catch(e) { alert("暂无模版"); isLoading.value = false; }
             };
 
-            // 3. 处理文件选择
-            const handleFileUpload = (event) => {
-                selectedFile.value = event.target.files[0];
-            };
-
-            // 4. 上传用户头像 (使用 FormData)
-            const updateUserFace = async () => {
-                if (!selectedFile.value) {
-                    alert("请选择一张图片");
-                    return;
-                }
-                
-                isUploading.value = true;
-                const formData = new FormData();
-                formData.append('file', selectedFile.value);
-                formData.append('gender', tempGender.value);
-
-                try {
-                    const res = await axios.post(`${API_BASE}/users/face`, formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                    });
-                    
-                    // 更新本地状态
-                    user.value.face_image_url = res.data.url;
-                    user.value.gender = tempGender.value;
-                    showUserModal.value = false;
-                    alert("档案更新成功！");
-                } catch (e) {
-                    console.error(e);
-                    alert("上传失败: " + (e.response?.data?.detail || e.message));
-                } finally {
-                    isUploading.value = false;
-                }
-            };
-
-            // 5. 创建订单
+            // --- Order ---
             const createOrder = async (template) => {
-                if (!user.value.face_image_url) {
-                    alert("请先上传您的正脸照片！");
-                    showUserModal.value = true;
-                    return;
-                }
-                if (user.value.balance < template.price) {
-                    alert(`余额不足，需支付 ¥${template.price}`);
-                    return;
-                }
-
-                if (!confirm(`确定消耗 ¥${template.price} 制作同款吗？`)) return;
+                if (!user.value.face_image_url) { showUserModal.value = true; return; }
+                if (user.value.balance < template.price) { alert("余额不足"); return; }
+                if (!confirm(`确认制作？消耗 ¥${template.price}`)) return;
 
                 try {
                     const res = await axios.post(`${API_BASE}/orders`, { template_id: template.id });
-                    const order = res.data;
-                    
-                    // 进入等待界面
-                    processingOrder.value = { ...order, template };
-                    pollOrderStatus(order.id);
-                    
-                    // 乐观更新余额
                     user.value.balance -= template.price;
-                } catch (e) {
-                    console.error(e);
-                    alert(e.response?.data?.detail || "下单失败");
-                }
+                    processingOrder.value = { ...res.data, template };
+                    pollOrder(res.data.id);
+                } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
             };
 
-            // 6. 轮询订单状态
-            const pollOrderStatus = async (orderId) => {
+            const pollOrder = async (id) => {
                 const interval = setInterval(async () => {
                     try {
-                        const res = await axios.get(`${API_BASE}/orders/${orderId}`);
-                        const status = res.data.status;
-                        
-                        // 更新状态显示
-                        if (processingOrder.value) {
-                            processingOrder.value.status = status;
-                        }
-
-                        if (status === 'COMPLETED') {
+                        const res = await axios.get(`${API_BASE}/orders/${id}`);
+                        if (processingOrder.value) processingOrder.value.status = res.data.status;
+                        if (res.data.status === 'COMPLETED') {
                             processingOrder.value.result_image_url = res.data.result_image_url;
                             clearInterval(interval);
-                        } else if (status === 'FAILED') {
-                            clearInterval(interval);
-                        }
-                    } catch (e) {
-                        console.error("Polling error", e);
-                        clearInterval(interval);
-                    }
-                }, 3000); // 每3秒轮询一次
+                        } else if (res.data.status === 'FAILED') clearInterval(interval);
+                    } catch { clearInterval(interval); }
+                }, 3000);
             };
 
-            // 7. 画廊逻辑
-            const loadGallery = async (cat = '') => {
+            // --- User Upload ---
+            const handleUserFileUpload = (e) => userFile.value = e.target.files[0];
+            const updateUserFace = async () => {
+                if(!userFile.value) return alert("请选图");
+                isUploading.value = true;
+                const fd = new FormData();
+                fd.append('file', userFile.value);
+                fd.append('gender', tempGender.value);
                 try {
-                    const url = cat && cat !== '全部' ? `${API_BASE}/templates?category=${cat}` : `${API_BASE}/templates`;
-                    const res = await axios.get(url);
-                    galleryTemplates.value = res.data;
-                } catch (e) { console.error("Gallery load failed", e); }
-            };
-            
-            const filterCategory = (cat) => {
-                activeCategory.value = cat;
-                loadGallery(cat);
+                    const res = await axios.post(`${API_BASE}/users/face`, fd);
+                    user.value.face_image_url = res.data.url;
+                    user.value.gender = tempGender.value;
+                    showUserModal.value = false;
+                    alert("档案更新成功");
+                } catch(e) { alert("上传失败"); } 
+                finally { isUploading.value = false; }
             };
 
-            const startDrag = (e) => {
-                console.log("Dragging...");
+            // --- Admin Upload ---
+            const handleAdminFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    // 使用新的通用上传接口
+                    const res = await axios.post(`${API_BASE}/utils/upload`, fd);
+                    newTemplate.cover_image_url = res.data.url;
+                } catch(e) { alert("图片上传失败"); }
             };
+
+            const submitNewTemplate = async () => {
+                if (!newTemplate.cover_image_url) return alert("请先上传样图");
+                isAdminSubmitting.value = true;
+                try {
+                    await axios.post(`${API_BASE}/admin/templates/`, newTemplate);
+                    alert("✅ 上架成功！");
+                    // 重置表单
+                    newTemplate.title = '';
+                    newTemplate.cover_image_url = '';
+                    loadGallery(); // 刷新画廊
+                } catch(e) { alert("上架失败: " + e.message); } 
+                finally { isAdminSubmitting.value = false; }
+            };
+
+            // --- Gallery ---
+            const loadGallery = async (cat='') => {
+                const url = cat && cat!=='全部' ? `${API_BASE}/templates?category=${cat}` : `${API_BASE}/templates`;
+                const res = await axios.get(url);
+                galleryTemplates.value = res.data;
+            };
+            const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
+            const startDrag = () => {};
 
             onMounted(init);
 
             return {
-                currentView, user, currentCameraPhoto, galleryTemplates, isLoading,
-                showUserModal, tempGender, processingOrder, isUploading,
-                categories, activeCategory,
-                triggerCamera, createOrder, updateUserFace, handleFileUpload, filterCategory, startDrag
+                currentView, user, currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
+                isLoading, isUploading, tempGender, categories, activeCategory,
+                newTemplate, isAdminSubmitting,
+                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory, startDrag,
+                handleAdminFileUpload, submitNewTemplate
             };
         }
     }).mount('#app');
 </script>
-<style>
-@keyframes progress {
-    0% { transform: scaleX(0); }
-    100% { transform: scaleX(1); }
-}
-</style>
 </body>
 </html>
