@@ -29,11 +29,17 @@
     <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
         <div class="text-2xl retro-font text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
         <div class="space-x-4 text-sm flex items-center">
-            <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
-            <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
-            <button @click="showUserModal = true" class="hover:text-yellow-200">👤 余额: {{ user.balance }}</button>
-            <!-- 隐蔽的管理员入口 -->
-            <button @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
+            <template v-if="isLoggedIn">
+                <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
+                <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
+                <button @click="showUserModal = true" class="hover:text-yellow-200">👤 余额: {{ user.credits }}</button>
+                <!-- 隐蔽的管理员入口 -->
+                <button v-if="isAdmin" @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
+                <button @click="logout" class="hover:text-red-400">退出</button>
+            </template>
+            <template v-else>
+                <button @click="showLoginModal = true" class="px-4 py-2 bg-yellow-500 text-stone-900 rounded-full font-bold hover:bg-yellow-400">登录/注册</button>
+            </template>
         </div>
     </nav>
 
@@ -60,7 +66,7 @@
                     <div class="w-16 h-16 rounded-full border-2 border-red-800 bg-red-500"></div>
                 </button>
                 <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)" class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
-                    ✨ 我也要同款 (¥{{ currentCameraPhoto.price }})
+                    ✨ 我也要同款 ({{ currentCameraPhoto.price }} 积分)
                 </button>
             </div>
         </div>
@@ -188,6 +194,14 @@
                 </div>
                 <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 请先上传正脸照</p>
             </div>
+            
+            <div class="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p class="text-sm font-bold">余额: {{ user.credits }} 积分</p>
+                <button @click="showTopUpModal = true" class="mt-2 w-full px-4 py-2 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600">
+                    💰 充值
+                </button>
+            </div>
+            
             <div class="space-y-3">
                 <input type="file" @change="handleUserFileUpload" accept="image/*" class="w-full border p-2 rounded">
                 <select v-model="tempGender" class="w-full border p-2 rounded">
@@ -201,23 +215,83 @@
         </div>
     </div>
 
+    <!-- 登录/注册模态框 -->
+    <div v-if="showLoginModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showLoginModal = false">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 class="text-xl font-bold mb-4">{{ isRegisterMode ? '注册账号' : '登录账号' }}</h3>
+            
+            <div class="space-y-3">
+                <input v-model="loginForm.email" type="email" placeholder="邮箱" class="w-full border p-2 rounded">
+                <input v-model="loginForm.password" type="password" placeholder="密码" class="w-full border p-2 rounded">
+                
+                <button @click="handleLogin" :disabled="isAuthLoading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold">
+                    {{ isAuthLoading ? '处理中...' : (isRegisterMode ? '注册' : '登录') }}
+                </button>
+                
+                <button @click="isRegisterMode = !isRegisterMode" class="w-full text-sm text-blue-600 hover:underline">
+                    {{ isRegisterMode ? '已有账号？点击登录' : '没有账号？点击注册' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 充值模态框 -->
+    <div v-if="showTopUpModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showTopUpModal = false">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 class="text-xl font-bold mb-4">💰 充值积分</h3>
+            
+            <div class="space-y-3">
+                <div class="grid grid-cols-3 gap-2">
+                    <button @click="topUpAmount = 50" :class="{'bg-yellow-500 text-white': topUpAmount === 50}" class="border-2 border-yellow-500 p-3 rounded-lg font-bold hover:bg-yellow-100">
+                        50积分
+                    </button>
+                    <button @click="topUpAmount = 100" :class="{'bg-yellow-500 text-white': topUpAmount === 100}" class="border-2 border-yellow-500 p-3 rounded-lg font-bold hover:bg-yellow-100">
+                        100积分
+                    </button>
+                    <button @click="topUpAmount = 200" :class="{'bg-yellow-500 text-white': topUpAmount === 200}" class="border-2 border-yellow-500 p-3 rounded-lg font-bold hover:bg-yellow-100">
+                        200积分
+                    </button>
+                </div>
+                
+                <input v-model.number="topUpAmount" type="number" placeholder="自定义金额" class="w-full border p-2 rounded">
+                
+                <button @click="handleTopUp" :disabled="isTopUpLoading" class="w-full bg-green-500 text-white py-3 rounded-lg font-bold hover:bg-green-600">
+                    {{ isTopUpLoading ? '充值中...' : `充值 ${topUpAmount} 积分` }}
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
     const API_BASE = 'http://localhost:8000/api/v1'; 
-    const { createApp, ref, onMounted, reactive } = Vue;
+    const { createApp, ref, onMounted, reactive, computed } = Vue;
 
     createApp({
         setup() {
             // State
             const currentView = ref('camera');
-            const user = ref({ balance: 0, face_image_url: null });
+            const user = ref({ credits: 0, face_image_url: null, roles: [] });
             const currentCameraPhoto = ref(null);
             const galleryTemplates = ref([]);
             const showUserModal = ref(false);
+            const showLoginModal = ref(false);
+            const showTopUpModal = ref(false);
             const processingOrder = ref(null);
             const isLoading = ref(false);
             const isUploading = ref(false);
+            const isAuthLoading = ref(false);
+            const isTopUpLoading = ref(false);
+            
+            // Auth State
+            const isLoggedIn = ref(false);
+            const authToken = ref(localStorage.getItem('authToken') || '');
+            const isRegisterMode = ref(false);
+            const loginForm = reactive({ email: '', password: '' });
+            
+            // Top-up State
+            const topUpAmount = ref(100);
             
             // User Upload
             const userFile = ref(null);
@@ -234,13 +308,104 @@
                 prompt_config: { base_prompt: 'High quality, 8k', variable_prompt: '', negative_prompt: 'nsfw, low quality' }
             });
 
+            // Computed
+            const isAdmin = computed(() => user.value.roles && user.value.roles.includes('admin'));
+
+            // Configure axios with auth token
+            const configureAxios = () => {
+                if (authToken.value) {
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${authToken.value}`;
+                    isLoggedIn.value = true;
+                } else {
+                    delete axios.defaults.headers.common['Authorization'];
+                    isLoggedIn.value = false;
+                }
+            };
+
+            // --- Auth ---
+            const handleLogin = async () => {
+                if (!loginForm.email || !loginForm.password) {
+                    alert('请填写邮箱和密码');
+                    return;
+                }
+                
+                isAuthLoading.value = true;
+                try {
+                    const endpoint = isRegisterMode.value ? '/auth/register' : '/auth/login';
+                    const res = await axios.post(`${API_BASE}${endpoint}`, {
+                        email: loginForm.email,
+                        password: loginForm.password
+                    });
+                    
+                    authToken.value = res.data.access_token;
+                    localStorage.setItem('authToken', authToken.value);
+                    user.value = res.data.user;
+                    
+                    configureAxios();
+                    showLoginModal.value = false;
+                    loginForm.email = '';
+                    loginForm.password = '';
+                    
+                    alert(isRegisterMode.value ? '注册成功！已赠送100积分' : '登录成功！');
+                    loadGallery();
+                } catch(e) {
+                    alert(e.response?.data?.detail || '登录失败');
+                } finally {
+                    isAuthLoading.value = false;
+                }
+            };
+
+            const logout = () => {
+                authToken.value = '';
+                localStorage.removeItem('authToken');
+                user.value = { credits: 0, face_image_url: null, roles: [] };
+                isLoggedIn.value = false;
+                configureAxios();
+                currentView.value = 'camera';
+            };
+
+            // --- Top-up ---
+            const handleTopUp = async () => {
+                if (topUpAmount.value <= 0) {
+                    alert('请输入有效的充值金额');
+                    return;
+                }
+                
+                isTopUpLoading.value = true;
+                try {
+                    const res = await axios.post(`${API_BASE}/users/top-up`, {
+                        amount: topUpAmount.value
+                    });
+                    user.value = res.data;
+                    showTopUpModal.value = false;
+                    alert(`充值成功！已到账${topUpAmount.value}积分`);
+                } catch(e) {
+                    alert(e.response?.data?.detail || '充值失败');
+                } finally {
+                    isTopUpLoading.value = false;
+                }
+            };
+
             // --- Init ---
             const init = async () => {
+                configureAxios();
+                
+                if (!isLoggedIn.value) {
+                    showLoginModal.value = true;
+                    return;
+                }
+                
                 try {
                     const res = await axios.get(`${API_BASE}/users/me`);
                     user.value = res.data;
                     tempGender.value = user.value.gender || 'female';
-                } catch(e) { console.error("Network Error", e); }
+                } catch(e) {
+                    console.error("Network Error", e);
+                    // 如果token无效，清除并要求重新登录
+                    if (e.response?.status === 401) {
+                        logout();
+                    }
+                }
                 loadGallery();
             };
 
@@ -256,13 +421,22 @@
 
             // --- Order ---
             const createOrder = async (template) => {
+                if (!isLoggedIn.value) {
+                    showLoginModal.value = true;
+                    return;
+                }
+                
                 if (!user.value.face_image_url) { showUserModal.value = true; return; }
-                if (user.value.balance < template.price) { alert("余额不足"); return; }
-                if (!confirm(`确认制作？消耗 ¥${template.price}`)) return;
+                if (user.value.credits < template.price) { 
+                    alert("余额不足，请先充值"); 
+                    showTopUpModal.value = true;
+                    return; 
+                }
+                if (!confirm(`确认制作？消耗 ${template.price} 积分`)) return;
 
                 try {
                     const res = await axios.post(`${API_BASE}/orders`, { template_id: template.id });
-                    user.value.balance -= template.price;
+                    user.value.credits -= template.price;
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
                 } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
@@ -338,11 +512,12 @@
             onMounted(init);
 
             return {
-                currentView, user, currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
-                isLoading, isUploading, tempGender, categories, activeCategory,
-                newTemplate, isAdminSubmitting,
+                currentView, user, currentCameraPhoto, galleryTemplates, showUserModal, showLoginModal, 
+                showTopUpModal, processingOrder, isLoading, isUploading, isAuthLoading, isTopUpLoading,
+                tempGender, categories, activeCategory, newTemplate, isAdminSubmitting,
+                isLoggedIn, isRegisterMode, loginForm, isAdmin, topUpAmount,
                 triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory, startDrag,
-                handleAdminFileUpload, submitNewTemplate
+                handleAdminFileUpload, submitNewTemplate, handleLogin, logout, handleTopUp
             };
         }
     }).mount('#app');

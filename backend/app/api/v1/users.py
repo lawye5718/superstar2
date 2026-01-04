@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, R
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import Any
+from pydantic import BaseModel
 import aiofiles
 import os
 import uuid
@@ -15,6 +16,10 @@ from app.schemas.user import UserResponse
 import asyncio
 
 router = APIRouter()
+
+
+class TopUpRequest(BaseModel):
+    amount: int  # 充值金额，对应积分
 
 
 @router.get("/me", response_model=UserResponse)
@@ -40,6 +45,30 @@ def read_user_me(
             db.add(user)
             db.commit()
             db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
+@router.post("/top-up", response_model=UserResponse)
+def top_up_balance(
+    top_up_data: TopUpRequest,
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """
+    Top up user balance/credits
+    """
+    db = SyncSessionLocal()
+    try:
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 增加用户余额
+        user.credits += top_up_data.amount
+        db.commit()
+        db.refresh(user)
+        
         return user
     finally:
         db.close()

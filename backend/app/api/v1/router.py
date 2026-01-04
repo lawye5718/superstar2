@@ -1,10 +1,13 @@
 """API v1 router"""
 
 from fastapi import APIRouter
-from . import users, templates, orders, utils
+from . import users, templates, orders, utils, auth
 from .admin import templates as admin_templates
 
 api_router = APIRouter()
+
+# Authentication routes
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 
 # Include API routes
 api_router.include_router(users.router, prefix="/users", tags=["users"])

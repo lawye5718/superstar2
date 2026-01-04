@@ -8,20 +8,21 @@ from app.models.database import OrderStatusEnum
 
 
 class OrderBase(BaseModel):
-    user_id: UUID
-    credits_purchased: int
-    amount: float
-    platform: str
-    status: OrderStatusEnum = OrderStatusEnum.PENDING
+    template_id: Optional[UUID] = None
 
 
-class OrderCreate(OrderBase):
-    pass
+class OrderCreate(BaseModel):
+    template_id: UUID
 
 
-class OrderResponse(OrderBase):
+class OrderResponse(BaseModel):
     id: UUID
-    transaction_id: Optional[str] = None
+    user_id: UUID
+    template_id: Optional[UUID] = None
+    status: str
+    amount: float
+    credits_consumed: float
+    result_image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
