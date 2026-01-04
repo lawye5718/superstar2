@@ -65,6 +65,10 @@ class User(Base):
     # Credits (wallet)
     credits = Column(Integer, default=0, nullable=False)
     
+    # User profile
+    face_image_url = Column(String(500), nullable=True)  # User uploaded face image
+    gender = Column(String(20), nullable=True)  # User gender
+    
     # Roles (array stored as JSON)
     roles = Column(JSON, default=lambda: ["user"], nullable=False)
     

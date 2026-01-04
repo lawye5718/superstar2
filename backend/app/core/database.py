@@ -60,12 +60,16 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Initialize database connection"""
+    """Initialize database connection and create tables"""
     try:
-        # Test the connection
+        # Import all models to ensure they are registered with Base
+        from app.models import database  # This imports all models
+        
+        # Create all tables
         async with async_engine.begin() as conn:
-            pass
-        logging.info("Database connection initialized successfully")
+            await conn.run_sync(Base.metadata.create_all)
+        
+        logging.info("Database connection initialized and tables created successfully")
     except Exception as e:
         logging.error(f"Failed to initialize database: {e}")
         raise

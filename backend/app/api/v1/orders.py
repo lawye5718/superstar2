@@ -7,6 +7,7 @@ from typing import Any
 import uuid
 from datetime import datetime
 from app.core.database import SyncSessionLocal
+from app.core.dependencies import get_current_user_id
 from app.models.database import Order, User, Template
 from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
 
@@ -15,7 +16,8 @@ router = APIRouter()
 
 @router.post("/", response_model=OrderResponse)
 def create_order(
-    order_in: OrderCreate
+    order_in: OrderCreate,
+    current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
     Create a new order.
@@ -28,15 +30,24 @@ def create_order(
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
         
+        # 验证用户是否存在
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # 创建订单
         order_id = str(uuid.uuid4())
+        template_price = float(template.price) if hasattr(template, 'price') and template.price else 9.9
+        
         order = Order(
             id=order_id,
-            user_id="test-user-uuid-001",  # 临时硬编码，实际应从认证信息中获取
+            user_id=current_user_id,
             template_id=order_in.template_id,
             status="PENDING",  # 订单状态
-            amount=template.price if hasattr(template, 'price') else 9.9,  # 使用模板价格
-            credits_consumed=template.price if hasattr(template, 'price') else 9.9  # 消耗积分
+            amount=template_price,  # 使用模板价格
+            credits_consumed=template_price,  # 消耗积分
+            credits_purchased=0,  # 积分套餐订单才有这个值
+            platform="web"  # 默认平台
         )
         
         db.add(order)
@@ -45,12 +56,12 @@ def create_order(
         
         # 返回订单信息
         return OrderResponse(
-            id=order.id,
-            user_id=order.user_id,
-            template_id=order.template_id,
-            status=order.status,
-            amount=order.amount,
-            credits_consumed=order.credits_consumed,
+            id=str(order.id),
+            user_id=str(order.user_id),
+            template_id=str(order.template_id) if order.template_id else None,
+            status=order.status.value if hasattr(order.status, 'value') else str(order.status),
+            amount=float(order.amount),
+            credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
             created_at=order.created_at,
             updated_at=order.updated_at
         )
@@ -63,7 +74,8 @@ def create_order(
 
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order(
-    order_id: str
+    order_id: str,
+    current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
     Get order by ID.
@@ -75,16 +87,20 @@ def get_order(
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         
+        # 验证订单属于当前用户
+        if str(order.user_id) != str(current_user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to view this order")
+        
         # 获取关联的模板信息
         template = db.query(Template).filter(Template.id == order.template_id).first()
         
         return OrderResponse(
-            id=order.id,
-            user_id=order.user_id,
-            template_id=order.template_id,
-            status=order.status,
-            amount=order.amount,
-            credits_consumed=order.credits_consumed,
+            id=str(order.id),
+            user_id=str(order.user_id),
+            template_id=str(order.template_id) if order.template_id else None,
+            status=order.status.value if hasattr(order.status, 'value') else str(order.status),
+            amount=float(order.amount),
+            credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
             result_image_url=getattr(order, 'result_image_url', f"https://images.unsplash.com/photo-1543128639-4cb7e25b4e3d?w=800&q=80"),  # 临时结果图片
             created_at=order.created_at,
             updated_at=order.updated_at
