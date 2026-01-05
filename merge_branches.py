@@ -116,7 +116,8 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
         except RuntimeError as exc:
             raise RuntimeError(
                 f"Merge from '{name}' into '{target}' failed. See git output above. "
-                "If conflicts occurred, resolve them and run `git merge --continue`, or run `git merge --abort` to cancel before rerunning."
+                "If conflicts occurred, resolve them and run `git merge --continue`, or run `git merge --abort` to cancel before rerunning. "
+                "Ensure you are on the intended target branch when retrying."
             ) from exc
 
 
@@ -124,7 +125,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Merge all local branches into one branch by committer date (oldest first)."
     )
-    parser.add_argument("--target", default=None, help="Target branch to merge into (defaults to current branch).")
+    parser.add_argument(
+        "--target",
+        default=None,
+        help="Target branch to merge into. If not specified, uses the current branch.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Only show planned merge order.")
     parser.add_argument(
         "--allow-dirty",
