@@ -8,7 +8,8 @@ import os
 import uuid
 import aiofiles
 
-from app.core.dependencies import get_db, get_current_user_id
+from app.core.database import get_sync_db
+from app.core.dependencies import get_current_user_id
 from app.core.security import get_password_hash
 from app.models.database import User
 from app.schemas.user import UserCreate, UserResponse
@@ -19,7 +20,7 @@ router = APIRouter()
 @router.post("/", response_model=UserResponse)
 def create_user(
     user_in: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_sync_db)
 ) -> Any:
     """
     Create new user.
@@ -32,8 +33,10 @@ def create_user(
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
         username=user_in.username or user_in.email.split("@")[0],
-        credits=100.0, # 注册赠送 100 积分
-        is_active=True
+        credits=100.0,  # 注册赠送 100 积分
+        is_active=True,
+        roles=["user"],
+        is_superuser=False
     )
     db.add(user)
     db.commit()
@@ -42,7 +45,7 @@ def create_user(
 
 @router.get("/me", response_model=UserResponse)
 def read_user_me(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     user = db.query(User).filter(User.id == current_user_id).first()
@@ -54,7 +57,7 @@ def read_user_me(
 @router.post("/topup", response_model=UserResponse)
 def top_up_balance(
     amount: float = Body(..., embed=True),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
@@ -64,7 +67,11 @@ def top_up_balance(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.credits += amount
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Top-up amount must be positive")
+
+    current_balance = float(user.credits or 0)
+    user.credits = current_balance + amount
     db.commit()
     db.refresh(user)
     return user
@@ -72,7 +79,7 @@ def top_up_balance(
 @router.post("/face", response_model=dict)
 async def upload_face(
     request: Request,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_sync_db),
     file: UploadFile = File(...),
     gender: str = Form(...),
     current_user_id: str = Depends(get_current_user_id)
