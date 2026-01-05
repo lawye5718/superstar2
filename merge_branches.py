@@ -92,8 +92,15 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
         if name in already_merged:
             continue
         print(f"Merging {name} into {target} ...")
+        merge_args = [
+            "merge",
+            "--no-ff",
+            "--message",
+            f"Merge branch '{name}' into {target}",
+            name,
+        ]
         try:
-            run_git(["merge", "--no-ff", "--no-edit", name])
+            run_git(merge_args)
         except RuntimeError as exc:
             raise RuntimeError(
                 f"Merge from '{name}' into '{target}' failed. "
