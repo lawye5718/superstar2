@@ -16,7 +16,7 @@ class OrderService:
         """Create a new order"""
         db_order = Order(
             user_id=order_in.user_id,
-            credits_purchased=order_in.credits_purchased,
+            balance_consumed=order_in.balance_consumed,
             amount=order_in.amount,
             platform=order_in.platform,
             status=order_in.status

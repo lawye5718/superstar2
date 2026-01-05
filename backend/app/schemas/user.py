@@ -20,14 +20,14 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(UserBase):
-    credits: Optional[int] = None
+    balance: Optional[float] = None
     face_image_url: Optional[str] = None
     gender: Optional[str] = None
 
 
 class UserInDBBase(UserBase):
     id: Optional[str] = None
-    credits: float = 0.0
+    balance: float = 0.0
     face_image_url: Optional[str] = None
     gender: Optional[str] = None
 

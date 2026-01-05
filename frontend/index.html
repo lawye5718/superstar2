@@ -30,7 +30,7 @@
         <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
-            <button @click="openUserModal('profile')" class="hover:text-yellow-200 font-bold">👤 {{ user.username }} (¥{{ user.credits }})</button>
+            <button @click="openUserModal('profile')" class="hover:text-yellow-200 font-bold">👤 {{ user.username }} (¥{{ user.balance }})</button>
             
             <!-- 管理员入口 -->
             <button v-if="user.is_superuser" @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs border border-stone-600 px-2 py-1 rounded hover:border-red-400 hover:text-red-400 ml-2 transition">
@@ -147,18 +147,18 @@
                     </div>
                 </div>
 
-                <!-- 右侧：数据概览 (Mock Data for MVP) -->
+                <!-- 右侧：数据概览 (Real Data) -->
                 <div class="space-y-6">
                     <div class="bg-white p-6 rounded-xl shadow-sm">
                         <h2 class="text-xl font-bold mb-4">📊 运营数据</h2>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="bg-blue-50 p-4 rounded-lg">
                                 <p class="text-xs text-blue-500 uppercase">Total Users</p>
-                                <p class="text-2xl font-bold">1,204</p>
+                                <p class="text-2xl font-bold">{{ adminStats.total_users || 0 }}</p>
                             </div>
                             <div class="bg-green-50 p-4 rounded-lg">
                                 <p class="text-xs text-green-500 uppercase">Revenue</p>
-                                <p class="text-2xl font-bold">¥45,230</p>
+                                <p class="text-2xl font-bold">¥{{ adminStats.total_revenue || 0 }}</p>
                             </div>
                         </div>
                     </div>
@@ -166,11 +166,11 @@
                     <div class="bg-white p-6 rounded-xl shadow-sm">
                         <h2 class="text-xl font-bold mb-4">👥 用户列表 (最新)</h2>
                         <div class="space-y-2">
-                            <div class="flex justify-between text-sm border-b pb-2" v-for="i in 3" :key="i">
-                                <span>User_{{ Math.floor(Math.random()*1000) }}</span>
-                                <span class="text-green-600">+¥{{ Math.floor(Math.random()*100) }}</span>
+                            <div class="flex justify-between text-sm border-b pb-2" v-for="usr in adminUsers" :key="usr.id">
+                                <span>{{ usr.username || usr.email }}</span>
+                                <span class="text-green-600">¥{{ usr.balance || 0 }}</span>
                             </div>
-                            <p class="text-xs text-gray-400 text-center mt-2">View all in DB Admin</p>
+                            <p class="text-xs text-gray-400 text-center mt-2" v-if="adminUsers.length === 0">No users found</p>
                         </div>
                     </div>
                 </div>
@@ -249,7 +249,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-bold">{{ user.username }}</h3>
-                        <p class="text-yellow-400 text-sm font-mono">余额: ¥{{ user.credits }}</p>
+                        <p class="text-yellow-400 text-sm font-mono">余额: ¥{{ user.balance }}</p>
                     </div>
                 </div>
                 <button @click="showUserModal = false" class="text-stone-400 hover:text-white">✕</button>
@@ -327,14 +327,14 @@
 
 <script>
     const API_BASE = 'http://localhost:8000/api/v1'; 
-    const { createApp, ref, onMounted, reactive } = Vue;
+    const { createApp, ref, onMounted, reactive, watch } = Vue;
 
     createApp({
         setup() {
             // --- State Management ---
             const currentView = ref('camera');
             const isLoggedIn = ref(false);
-            const user = ref({ credits: 0, face_image_url: null, is_superuser: false, username: '' });
+            const user = ref({ balance: 0, face_image_url: null, is_superuser: false, username: '' });
             const token = ref(localStorage.getItem('token') || '');
             
             const activeModalTab = ref('profile'); // profile | history
@@ -365,6 +365,10 @@
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
                 prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
             });
+            
+            // Admin Stats
+            const adminStats = ref({ total_users: 0, total_revenue: 0 });
+            const adminUsers = ref([]);
 
             // --- Configuration ---
             axios.interceptors.request.use(config => {
@@ -448,7 +452,7 @@
                     showUserModal.value = true; 
                     return; 
                 }
-                if (user.value.credits < template.price) { 
+                if (user.value.balance < template.price)
                     alert(`余额不足，请充值！`); 
                     activeModalTab.value = 'profile';
                     showUserModal.value = true;
@@ -458,7 +462,7 @@
 
                 try {
                     const res = await axios.post(`${API_BASE}/orders/`, { template_id: template.id });
-                    user.value.credits -= template.price; // Optimistic update
+                    user.value.balance -= template.price; // Optimistic update
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
                 } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
@@ -540,6 +544,23 @@
                 } catch {}
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
+            
+            const loadAdminData = async () => {
+                try {
+                    const statsRes = await axios.get(`${API_BASE}/admin/stats/overview`);
+                    adminStats.value = statsRes.data;
+                    
+                    const usersRes = await axios.get(`${API_BASE}/admin/users/list?limit=10`);
+                    adminUsers.value = usersRes.data;
+                } catch (e) { console.error('Failed to load admin data:', e); }
+            };
+            
+            // 监听视图变化，当进入管理员视图时加载数据
+            watch(currentView, (newView) => {
+                if (newView === 'admin') {
+                    loadAdminData();
+                }
+            });
 
             onMounted(init);
 

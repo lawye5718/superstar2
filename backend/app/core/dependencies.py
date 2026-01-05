@@ -64,10 +64,23 @@ def get_current_user(db: Session = Depends(get_db)):
             id=user_id,
             email="demo@example.com",
             password_hash=get_password_hash("default_password"),
-            credits=100,
-            roles=["user"]
+            balance=100,
+            roles=["user"],
+            is_superuser=False
         )
         db.add(user)
         db.commit()
         db.refresh(user)
     return user
+
+
+def get_current_active_superuser(current_user = Depends(get_current_user)):
+    """
+    检查当前用户是否为超级用户(管理员)
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions"
+        )
+    return current_user

@@ -1,12 +1,11 @@
 """User API routes"""
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Body
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import Any
-import aiofiles
 import os
 import uuid
+import aiofiles
 
 from app.core.database import SyncSessionLocal
 from app.core.dependencies import get_current_user_id, get_db
@@ -35,13 +34,15 @@ def create_user(
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
         username=user_in.username or user_in.email.split("@")[0],
-        credits=100.0, # 注册赠送 100 积分
-        is_active=True
+        balance=100.0, # 注册赠送 100 积分
+        is_active=True,
+        is_superuser=False  # 默认非超级用户
     )
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
 
 @router.get("/me", response_model=UserResponse)
 def read_user_me(
@@ -52,6 +53,7 @@ def read_user_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
 
 # --- 新增：模拟充值接口 (测试用) ---
 @router.post("/topup", response_model=UserResponse)
@@ -67,13 +69,14 @@ def top_up_balance(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user.credits += amount
+    user.balance += amount
     db.commit()
     db.refresh(user)
     return user
 
+
 @router.post("/face", response_model=dict)
-async def upload_face(
+def upload_face(
     request: Request,
     db: Session = Depends(get_db),
     file: UploadFile = File(...),
