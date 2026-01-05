@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Merge all local branches into a single target branch in chronological order.
+Merge all local branches into a single target branch in chronological (committer date) order.
 
 Usage:
   python merge_branches.py --target main       # merge into main
@@ -97,12 +97,14 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
         except RuntimeError as exc:
             raise RuntimeError(
                 f"Merge from '{name}' into '{target}' failed. "
-                "Resolve conflicts, run `git merge --abort` if needed, then rerun the script."
+                "Resolve conflicts and run `git merge --continue`, or run `git merge --abort` to cancel, then rerun the script."
             ) from exc
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Merge all local branches into one branch by commit time.")
+    parser = argparse.ArgumentParser(
+        description="Merge all local branches into one branch by committer date (oldest first)."
+    )
     parser.add_argument("--target", default=None, help="Target branch to merge into (defaults to current branch).")
     parser.add_argument("--dry-run", action="store_true", help="Only show planned merge order.")
     parser.add_argument(
