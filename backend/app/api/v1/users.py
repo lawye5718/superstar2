@@ -12,7 +12,8 @@ from app.core.database import get_sync_db
 from app.core.dependencies import get_current_user_id
 from app.core.security import get_password_hash
 from app.models.database import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.api.v1.helpers import normalize_balance_payload
 
 router = APIRouter()
 
@@ -51,6 +52,27 @@ def read_user_me(
     user = db.query(User).filter(User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.put("/me", response_model=UserResponse)
+def update_user_me(
+    user_in: UserUpdate,
+    db: Session = Depends(get_sync_db),
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """Update basic profile or balance for current user."""
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update_data = normalize_balance_payload(user_in.model_dump(exclude_unset=True))
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
     return user
 
 # --- 新增：模拟充值接口 (测试用) ---
