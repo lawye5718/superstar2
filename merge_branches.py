@@ -137,7 +137,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    target_branch = args.target or get_current_branch()
+    try:
+        target_branch = args.target or get_current_branch()
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Unable to determine current branch. Use --target to specify the branch explicitly."
+        ) from exc
     merge_branches(target_branch, args.dry_run, args.allow_dirty)
 
 
