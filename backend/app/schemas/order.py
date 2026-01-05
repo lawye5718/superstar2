@@ -8,20 +8,29 @@ from app.models.database import OrderStatusEnum
 
 
 class OrderBase(BaseModel):
-    user_id: UUID
-    credits_purchased: int
-    amount: float
-    platform: str
-    status: OrderStatusEnum = OrderStatusEnum.PENDING
+    template_id: Optional[str] = None  # Template ID for the order
 
 
 class OrderCreate(OrderBase):
+    """Schema for creating an order"""
     pass
 
 
-class OrderResponse(OrderBase):
-    id: UUID
-    transaction_id: Optional[str] = None
+class OrderUpdate(BaseModel):
+    """Schema for updating an order"""
+    status: Optional[OrderStatusEnum] = None
+    result_image_url: Optional[str] = None
+
+
+class OrderResponse(BaseModel):
+    """Schema for order response"""
+    id: str
+    user_id: str
+    template_id: Optional[str] = None
+    status: str
+    amount: float
+    credits_consumed: Optional[float] = None
+    result_image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

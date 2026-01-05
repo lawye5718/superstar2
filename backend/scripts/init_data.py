@@ -4,13 +4,17 @@ import asyncio
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.core.config import get_settings
-from app.models.database import Base, Template, User
+from app.models.database import Base, Template, User, GenderEnum
 from app.core.security import get_password_hash
 
 settings = get_settings()
 
-# 使用同步引擎
-engine = create_engine(settings.DATABASE_SYNC_URL, echo=True)
+# 使用同步引擎，并添加 SQLite 的 check_same_thread 参数
+engine_kwargs = {}
+if settings.DATABASE_SYNC_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(settings.DATABASE_SYNC_URL, echo=False, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -27,8 +31,10 @@ def init_db_data():
                 id="test-user-uuid-001",
                 email="demo@example.com",
                 password_hash=get_password_hash("default_password"),
+                username="demo",
                 credits=100,
-                roles=["user"]
+                roles=["user", "admin"],
+                is_superuser=True
             )
             db.add(demo_user)
             db.commit()
@@ -41,7 +47,7 @@ def init_db_data():
             templates_data = [
                 {
                     "title": "军绿色毛呢大衣复古写真",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["复古", "大衣", "冬季"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",
@@ -55,7 +61,7 @@ def init_db_data():
                 },
                 {
                     "title": "祖母绿缎面礼裙轻奢",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["轻奢", "礼裙", "优雅"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",
@@ -69,7 +75,7 @@ def init_db_data():
                 },
                 {
                     "title": "网球风运动写真",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["运动", "网球", "青春"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",
@@ -83,7 +89,7 @@ def init_db_data():
                 },
                 {
                     "title": "森系清新风格",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["森系", "清新", "自然"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",
@@ -97,7 +103,7 @@ def init_db_data():
                 },
                 {
                     "title": "职场精英风",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["职场", "精英", "商务"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",
@@ -111,7 +117,7 @@ def init_db_data():
                 },
                 {
                     "title": "海边度假风",
-                    "gender": "FEMALE",
+                    "gender": GenderEnum.FEMALE,
                     "tags": ["海边", "度假", "休闲"],
                     "config": {
                         "base_prompt": "High quality, 8k resolution, masterpiece",

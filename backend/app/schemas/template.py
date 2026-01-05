@@ -14,6 +14,8 @@ class TemplateBase(BaseModel):
     config: Dict[str, Any]
     is_approved: Optional[bool] = False
     display_image_urls: List[str]
+    price: Optional[float] = None  # Will use DEFAULT_TEMPLATE_PRICE from config if None
+    usage_count: Optional[int] = 0
 
 
 class TemplateCreate(TemplateBase):
@@ -30,9 +32,9 @@ class TemplateUpdate(BaseModel):
 
 
 class TemplateResponse(TemplateBase):
-    id: UUID
+    id: str
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

@@ -107,7 +107,7 @@ else:
     # Frontend not built yet - show helpful message
     @app.get("/")
     async def read_root():
-        """Frontend not available"
+        """Frontend not available"""
         return {
             "message": "Superstar V15.1 API",
             "version": settings.APP_VERSION,

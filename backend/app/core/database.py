@@ -15,7 +15,6 @@ settings = get_settings()
 # Synchronous engine for Alembic migrations and sync operations
 sync_engine = create_engine(
     settings.DATABASE_SYNC_URL,
-    poolclass=QueuePool,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,
@@ -27,7 +26,6 @@ sync_engine = create_engine(
 # Asynchronous engine for FastAPI operations
 async_engine = create_async_engine(
     settings.DATABASE_URL,
-    poolclass=QueuePool,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,
@@ -59,13 +57,26 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
-async def init_db():
-    """Initialize database connection"""
+def get_sync_db() -> Session:
+    """Get synchronous database session as dependency"""
+    db = SyncSessionLocal()
     try:
-        # Test the connection
+        yield db
+    finally:
+        db.close()
+
+
+async def init_db():
+    """Initialize database connection and create tables"""
+    try:
+        # Import all models to ensure they are registered with Base
+        from app.models import database  # This imports all models
+        
+        # Create all tables
         async with async_engine.begin() as conn:
-            pass
-        logging.info("Database connection initialized successfully")
+            await conn.run_sync(Base.metadata.create_all)
+        
+        logging.info("Database connection initialized and tables created successfully")
     except Exception as e:
         logging.error(f"Failed to initialize database: {e}")
         raise
