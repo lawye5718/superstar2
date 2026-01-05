@@ -43,6 +43,34 @@ def get_admin_stats(
     )
 
 
+@router.get("/stats/dashboard", response_model=dict)
+def get_admin_dashboard_stats(
+    db: Session = Depends(get_sync_db),
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """实时运营数据看板"""
+    _require_admin(db, current_user_id)
+
+    # 1. 总用户数
+    total_users = db.query(func.count(User.id)).scalar() or 0
+    
+    # 2. 总收入 (所有 COMPLETED 订单的金额总和)
+    total_revenue = db.query(func.coalesce(func.sum(Order.amount), 0)).filter(Order.status == 'COMPLETED').scalar() or 0
+    
+    # 3. 总订单数
+    total_orders = db.query(func.count(Order.id)).filter(Order.status == 'COMPLETED').scalar() or 0
+    
+    # 4. 模板数量
+    total_templates = db.query(func.count(Template.id)).scalar() or 0
+
+    return {
+        "total_users": total_users,
+        "total_revenue": round(float(total_revenue), 2),
+        "total_orders": total_orders,
+        "total_templates": total_templates
+    }
+
+
 @router.get("/users", response_model=AdminUserListResponse)
 def list_users_for_admin(
     skip: int = Query(0, ge=0),

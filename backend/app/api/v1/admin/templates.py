@@ -62,3 +62,25 @@ def create_template(
     db.refresh(template)
     
     return template
+
+
+@router.delete("/{id}", response_model=dict)
+def delete_template(
+    id: str,  # Changed to str to match UUID
+    db: Session = Depends(get_sync_db),
+    current_user_id: str = Depends(get_current_user_id),
+) -> Any:
+    """
+    管理员删除模版 (Admin delete template)
+    """
+    admin = db.query(User).filter(User.id == current_user_id).first()
+    if not admin or not getattr(admin, "is_superuser", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    template = db.query(Template).filter(Template.id == id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    db.delete(template)
+    db.commit()
+    return {"status": "success", "message": "Template deleted"}
