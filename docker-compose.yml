@@ -17,17 +17,6 @@ services:
     depends_on:
       - redis
 
-  db:
-    image: postgres:14
-    environment:
-      - POSTGRES_DB=superstar_db
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   redis:
     image: redis:7-alpine
     ports:
@@ -42,5 +31,4 @@ services:
     depends_on:
       - backend
 
-volumes:
-  postgres_data:
+# Volumes are handled via bind mounts in service definitions
