@@ -23,22 +23,24 @@ def init_db_data():
     db = SessionLocal()
     
     try:
-        # 检查是否已有数据
-        user_count = db.query(User).count()
-        if user_count == 0:
-            # 创建示例用户
-            demo_user = User(
-                id="test-user-uuid-001",
-                email="demo@example.com",
-                password_hash=get_password_hash("default_password"),
-                username="demo",
-                credits=100,
+        # 检查是否已有超级管理员
+        admin_user = db.query(User).filter(User.email == "admin@superstar.ai").first()
+        if not admin_user:
+            # 创建超级管理员用户
+            admin_user = User(
+                id="admin-user-uuid-001",
+                email="admin@superstar.ai",
+                password_hash=get_password_hash("admin123"),
+                username="SuperAdmin",
+                credits=999999.0,
                 roles=["user", "admin"],
-                is_superuser=True
+                is_superuser=True  # ✅ 关键：赋予管理员权限
             )
-            db.add(demo_user)
+            db.add(admin_user)
             db.commit()
-            print("Created demo user")
+            print("Created superuser: admin@superstar.ai with password 'admin123'")
+        else:
+            print("Superuser already exists")
         
         # 检查模板数据
         template_count = db.query(Template).count()
