@@ -18,7 +18,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(UserBase):
-    credits: Optional[int] = None
+    credits: Optional[float] = None
     balance: Optional[float] = None
 
 
