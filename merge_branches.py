@@ -25,7 +25,8 @@ def run_git(args: List[str], check: bool = True) -> str:
         text=True,
     )
     if check and result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+        message = result.stderr.strip() or result.stdout.strip() or "Git command failed with no output"
+        raise RuntimeError(message)
     return result.stdout.strip()
 
 
@@ -41,13 +42,10 @@ def ensure_clean_worktree(allow_dirty: bool) -> None:
 
 
 def ensure_branch_exists(branch: str) -> None:
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", branch],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Target branch '{branch}' does not exist locally.")
+    try:
+        run_git(["rev-parse", "--verify", branch])
+    except RuntimeError as exc:
+        raise RuntimeError(f"Target branch '{branch}' does not exist locally.") from exc
 
 
 def list_branches_by_date() -> List[Tuple[str, str]]:
@@ -85,7 +83,7 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
     branches = list_branches_by_date()
     already_merged = merged_branches(target)
 
-    branches_to_merge = [name for _, name in branches if name != target]
+    branches_to_merge = [name for commit_date, name in branches if name != target]
     if not branches_to_merge:
         print("No other local branches to merge.")
         return
