@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Any
 
 from app.core.database import SyncSessionLocal
-from app.core.dependencies import get_current_active_superuser
+from app.core.dependencies import get_current_active_superuser, get_db
 from app.models.database import User
 from app.schemas.user import UserResponse
 
@@ -35,7 +35,7 @@ def list_users(
     skip: int = 0,
     limit: int = 100,
     current_user = Depends(get_current_active_superuser),
-    db: Session = Depends(get_db)
+    db: Session = Depends(SyncSessionLocal)
 ) -> Any:
     """
     列出所有用户(仅管理员)
@@ -47,7 +47,7 @@ def list_users(
 @router.get("/stats", response_model=dict)
 def get_user_stats(
     current_user = Depends(get_current_active_superuser),
-    db: Session = Depends(get_db)
+    db: Session = Depends(SyncSessionLocal)
 ) -> Any:
     """
     获取用户统计信息(仅管理员)

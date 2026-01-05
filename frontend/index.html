@@ -117,60 +117,107 @@
 
         <!-- 3. 管理员后台 -->
         <div v-else-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
-            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <!-- 左侧：上架 -->
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📤 上架新模版</h2>
-                    <div class="space-y-4">
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
-                            <input type="file" @change="handleAdminFileUpload" class="absolute inset-0 opacity-0 cursor-pointer">
-                            <div v-if="!newTemplate.cover_image_url" class="text-gray-400">
-                                <p class="text-2xl">📷</p>
-                                <p class="text-xs">点击上传封面图</p>
-                            </div>
-                            <img v-else :src="newTemplate.cover_image_url" class="h-32 mx-auto object-cover rounded">
-                        </div>
-                        <input v-model="newTemplate.title" class="w-full border p-2 rounded text-sm" placeholder="标题">
-                        <div class="flex gap-2">
-                            <select v-model="newTemplate.category" class="w-1/2 border p-2 rounded text-sm">
-                                <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
-                            </select>
-                            <input v-model.number="newTemplate.price" type="number" class="w-1/2 border p-2 rounded text-sm" placeholder="价格">
-                        </div>
-                        <div class="bg-stone-50 p-3 rounded text-xs space-y-2">
-                            <input v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-1 rounded" placeholder="Base Prompt (Quality)">
-                            <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-1 rounded" rows="2" placeholder="Variable Prompt (Subject)"></textarea>
-                        </div>
-                        <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-2 rounded font-bold text-sm">
-                            {{ isAdminSubmitting ? 'Processing...' : 'Publish Template' }}
-                        </button>
-                    </div>
+            <div class="max-w-4xl mx-auto mt-6">
+                <!-- Admin Tabs -->
+                <div class="flex gap-4 mb-6">
+                    <button @click="adminTab = 'upload'" :class="adminTab === 'upload' ? 'bg-stone-900 text-white' : 'bg-white text-stone-600'" class="px-6 py-2 rounded-lg font-bold shadow-sm transition">上架管理</button>
+                    <button @click="adminTab = 'users'" :class="adminTab === 'users' ? 'bg-stone-900 text-white' : 'bg-white text-stone-600'" class="px-6 py-2 rounded-lg font-bold shadow-sm transition">用户管理</button>
                 </div>
 
-                <!-- 右侧：数据概览 (Real Data) -->
-                <div class="space-y-6">
+                <!-- Tab: 上架管理 -->
+                <div v-if="adminTab === 'upload'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white p-6 rounded-xl shadow-sm">
-                        <h2 class="text-xl font-bold mb-4">📊 运营数据</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-blue-50 p-4 rounded-lg">
-                                <p class="text-xs text-blue-500 uppercase">Total Users</p>
-                                <p class="text-2xl font-bold">{{ adminStats.total_users || 0 }}</p>
+                        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📤 上架新模版</h2>
+                        <div class="space-y-4">
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                                <input type="file" @change="handleAdminFileUpload" class="absolute inset-0 opacity-0 cursor-pointer">
+                                <div v-if="!newTemplate.cover_image_url" class="text-gray-400">
+                                    <p class="text-2xl">📷</p>
+                                    <p class="text-xs">点击上传封面图</p>
+                                </div>
+                                <img v-else :src="newTemplate.cover_image_url" class="h-32 mx-auto object-cover rounded">
                             </div>
-                            <div class="bg-green-50 p-4 rounded-lg">
-                                <p class="text-xs text-green-500 uppercase">Revenue</p>
-                                <p class="text-2xl font-bold">¥{{ adminStats.total_revenue || 0 }}</p>
+                            <input v-model="newTemplate.title" class="w-full border p-2 rounded text-sm" placeholder="标题">
+                            <div class="flex gap-2">
+                                <select v-model="newTemplate.category" class="w-1/2 border p-2 rounded text-sm">
+                                    <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
+                                </select>
+                                <input v-model.number="newTemplate.price" type="number" class="w-1/2 border p-2 rounded text-sm" placeholder="价格">
                             </div>
+                            <div class="bg-stone-50 p-3 rounded text-xs space-y-2">
+                                <input v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-1 rounded" placeholder="Base Prompt (Quality)">
+                                <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-1 rounded" rows="2" placeholder="Variable Prompt (Subject)"></textarea>
+                            </div>
+                            <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-2 rounded font-bold text-sm">
+                                {{ isAdminSubmitting ? 'Processing...' : 'Publish Template' }}
+                            </button>
                         </div>
                     </div>
                     
-                    <div class="bg-white p-6 rounded-xl shadow-sm">
-                        <h2 class="text-xl font-bold mb-4">👥 用户列表 (最新)</h2>
-                        <div class="space-y-2">
-                            <div class="flex justify-between text-sm border-b pb-2" v-for="usr in adminUsers" :key="usr.id">
-                                <span>{{ usr.username || usr.email }}</span>
-                                <span class="text-green-600">¥{{ usr.balance || 0 }}</span>
+                    <!-- 运营数据 -->
+                    <div class="space-y-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm">
+                            <h2 class="text-xl font-bold mb-4">📊 运营数据</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <p class="text-xs text-blue-500 uppercase">Total Users</p>
+                                    <p class="text-2xl font-bold">{{ adminStats.total_users || 0 }}</p>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <p class="text-xs text-green-500 uppercase">Revenue</p>
+                                    <p class="text-2xl font-bold">¥{{ adminStats.total_revenue || 0 }}</p>
+                                </div>
                             </div>
-                            <p class="text-xs text-gray-400 text-center mt-2" v-if="adminUsers.length === 0">No users found</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab: 用户管理 -->
+                <div v-if="adminTab === 'users'" class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-6 border-b">
+                        <h2 class="text-xl font-bold">👥 用户管理</h2>
+                    </div>
+                    
+                    <!-- 用户管理标签页 -->
+                    <div class="p-6">
+                        <div class="flex gap-4 mb-4 border-b">
+                            <button @click="adminUserTab = 'list'" :class="adminUserTab === 'list' ? 'border-b-2 border-stone-900 text-stone-900' : 'text-stone-500'" class="pb-2 px-2 font-bold">用户列表</button>
+                            <button @click="adminUserTab = 'stats'" :class="adminUserTab === 'stats' ? 'border-b-2 border-stone-900 text-stone-900' : 'text-stone-500'" class="pb-2 px-2 font-bold">用户统计</button>
+                        </div>
+                        
+                        <!-- 用户列表 -->
+                        <div v-if="adminUserTab === 'list'">
+                            <div class="space-y-2 max-h-80 overflow-y-auto">
+                                <div class="flex justify-between text-sm border-b pb-2" v-for="usr in adminUsers" :key="usr.id">
+                                    <div>
+                                        <span class="font-bold">{{ usr.username || usr.email }}</span>
+                                        <span class="text-xs text-gray-500 ml-2">({{ usr.email }})</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-green-600">¥{{ usr.balance || 0 }}</div>
+                                        <div class="text-xs text-gray-500">{{ new Date(usr.created_at).toLocaleDateString() }}</div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-400 text-center mt-2" v-if="adminUsers.length === 0">No users found</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 用户统计 -->
+                        <div v-if="adminUserTab === 'stats'">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-blue-50 p-3 rounded-lg">
+                                    <p class="text-xs text-blue-500">Total</p>
+                                    <p class="text-xl font-bold">{{ adminStats.total_users || 0 }}</p>
+                                </div>
+                                <div class="bg-green-50 p-3 rounded-lg">
+                                    <p class="text-xs text-green-500">Active</p>
+                                    <p class="text-xl font-bold">{{ adminStats.active_users || 0 }}</p>
+                                </div>
+                                <div class="bg-purple-50 p-3 rounded-lg">
+                                    <p class="text-xs text-purple-500">Admins</p>
+                                    <p class="text-xl font-bold">{{ adminStats.superusers || 0 }}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -339,6 +386,7 @@
             
             const activeModalTab = ref('profile'); // profile | history
             const myOrders = ref([]); // 历史订单列表
+            const pendingTemplate = ref(null); // 暂存用户想生成的模版
 
             // UI Flags
             const showAuthModal = ref(false);
@@ -361,14 +409,16 @@
             const activeCategory = ref('全部');
 
             // Admin Data
+            const adminTab = ref('upload'); // upload | users
             const newTemplate = reactive({
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
                 prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
             });
             
             // Admin Stats
-            const adminStats = ref({ total_users: 0, total_revenue: 0 });
+            const adminStats = ref({ total_users: 0, total_revenue: 0, active_users: 0, superusers: 0 });
             const adminUsers = ref([]);
+            const adminUserTab = ref('list'); // list | stats
 
             // --- Configuration ---
             axios.interceptors.request.use(config => {
@@ -433,7 +483,11 @@
             const openUserModal = (tab) => {
                 activeModalTab.value = tab;
                 showUserModal.value = true;
-                fetchOrders(); // 每次打开刷新订单
+                if(tab==='history') {
+                    fetchOrders(); // 每次打开刷新订单
+                    // 开始自动轮询历史订单中的处理中订单
+                    startOrderPolling();
+                }
             };
 
             const topUp = async (amount) => {
@@ -441,23 +495,28 @@
                     const res = await axios.post(`${API_BASE}/users/topup`, { amount: amount });
                     user.value = res.data;
                     alert(`充值 ¥${amount} 成功！`);
+                    // 尝试恢复操作
+                    if (pendingTemplate.value) attemptCreateOrder(pendingTemplate.value);
                 } catch(e) { alert("充值失败"); }
             };
 
             // --- Order Logic ---
-            const createOrder = async (template) => {
+            const attemptCreateOrder = (template) => {
+                pendingTemplate.value = template; // 暂存
                 if (!user.value.face_image_url) { 
-                    alert("请先在个人中心上传您的正脸照片！"); 
-                    activeModalTab.value = 'profile';
-                    showUserModal.value = true; 
+                    alert("请先上传您的正脸照片！"); 
+                    openUserModal('profile');
                     return; 
                 }
-                if (user.value.balance < template.price)
+                if (user.value.balance < template.price) { 
                     alert(`余额不足，请充值！`); 
-                    activeModalTab.value = 'profile';
-                    showUserModal.value = true;
+                    openUserModal('profile');
                     return; 
                 }
+                createOrder(template);
+            };
+
+            const createOrder = async (template) => {
                 if (!confirm(`确认制作？消耗 ¥${template.price}`)) return;
 
                 try {
@@ -465,6 +524,7 @@
                     user.value.balance -= template.price; // Optimistic update
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
+                    pendingTemplate.value = null; // 清空暂存
                 } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
             };
 
@@ -486,6 +546,27 @@
                         }
                     } catch { clearInterval(interval); }
                 }, 3000);
+            };
+
+            // 历史订单自动轮询
+            const startOrderPolling = () => {
+                // 简单轮询: 如果在历史订单标签页，且有非完成订单，开启轮询
+                const interval = setInterval(() => {
+                    if (activeModalTab.value === 'history') {
+                        const processingOrders = myOrders.value.filter(order => 
+                            order.status === 'PENDING' || order.status === 'PROCESSING'
+                        );
+                        if (processingOrders.length > 0) {
+                            fetchOrders();
+                        } else {
+                            // 如果没有处理中的订单，停止轮询
+                            clearInterval(interval);
+                        }
+                    } else {
+                        // 如果不在历史订单标签页，停止轮询
+                        clearInterval(interval);
+                    }
+                }, 5000);
             };
 
             // --- Helper Actions ---
@@ -510,6 +591,8 @@
                     user.value.face_image_url = res.data.url;
                     user.value.gender = tempGender.value;
                     alert("照片更新成功");
+                    // 尝试恢复操作
+                    if (pendingTemplate.value) attemptCreateOrder(pendingTemplate.value);
                 } catch { alert("上传失败"); } 
                 finally { isUploading.value = false; }
             };
@@ -548,9 +631,12 @@
             const loadAdminData = async () => {
                 try {
                     const statsRes = await axios.get(`${API_BASE}/admin/stats/overview`);
-                    adminStats.value = statsRes.data;
+                    const userStatsRes = await axios.get(`${API_BASE}/admin/users/stats`);
                     
-                    const usersRes = await axios.get(`${API_BASE}/admin/users/list?limit=10`);
+                    // 合并统计数据
+                    adminStats.value = { ...statsRes.data, ...userStatsRes.data };
+                    
+                    const usersRes = await axios.get(`${API_BASE}/users/?limit=10`); // 修改API路径
                     adminUsers.value = usersRes.data;
                 } catch (e) { console.error('Failed to load admin data:', e); }
             };
@@ -562,6 +648,22 @@
                 }
             });
 
+            // 监听用户登录状态，当登录后如果暂存了模版，尝试创建订单
+            watch(() => user.value.id, () => {
+                if (pendingTemplate.value && user.value.face_image_url && user.value.balance >= pendingTemplate.value.price) {
+                    createOrder(pendingTemplate.value);
+                    pendingTemplate.value = null;
+                }
+            });
+
+            // 初始化函数
+            const init = async () => {
+                if (token.value) {
+                    await fetchUserInfo();
+                    loadGallery();
+                }
+            };
+            
             onMounted(init);
 
             return {
@@ -569,9 +671,9 @@
                 currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
                 isLoading, isUploading, tempGender, categories, activeCategory,
                 newTemplate, isAdminSubmitting, activeModalTab, myOrders, openUserModal,
-                handleAuth, logout, topUp,
+                handleAuth, logout, topUp, attemptCreateOrder,
                 triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
-                handleAdminFileUpload, submitNewTemplate
+                handleAdminFileUpload, submitNewTemplate, adminUserTab, adminTab
             };
         }
     }).mount('#app');

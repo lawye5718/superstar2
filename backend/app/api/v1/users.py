@@ -112,3 +112,18 @@ def upload_face(
     db.commit()
     
     return {"status": "success", "url": file_url}
+
+
+# --- 新增：管理员获取用户列表 (仅管理员) ---
+@router.get("/", response_model=list[UserResponse])
+def read_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_superuser),
+) -> Any:
+    """
+    获取用户列表(仅管理员)
+    """
+    users = db.query(User).offset(skip).limit(limit).all()
+    return users
