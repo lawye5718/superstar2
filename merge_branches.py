@@ -14,6 +14,9 @@ import subprocess
 from typing import List, Tuple
 
 
+DELIMITER = "||"
+
+
 def run_git(args: List[str], check: bool = True) -> str:
     """Run a git command and return stdout."""
     result = subprocess.run(
@@ -42,14 +45,14 @@ def list_branches_by_date() -> List[Tuple[str, str]]:
     output = run_git([
         "for-each-ref",
         "--sort=committerdate",
-        "--format=%(committerdate:iso8601)%09%(refname:short)",
+        f"--format=%(committerdate:iso8601){DELIMITER}%(refname:short)",
         "refs/heads",
     ])
     branches = []
     for line in output.splitlines():
-        if "\t" not in line:
+        if DELIMITER not in line:
             continue
-        date, name = line.split("\t", 1)
+        date, name = line.split(DELIMITER, 1)
         branches.append((date, name))
     return branches
 
@@ -89,7 +92,13 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
         if name in already_merged:
             continue
         print(f"Merging {name} into {target} ...")
-        run_git(["merge", "--no-ff", "--no-edit", name])
+        try:
+            run_git(["merge", "--no-ff", "--no-edit", name])
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Merge from '{name}' into '{target}' failed. "
+                "Resolve conflicts, run `git merge --abort` if needed, then rerun the script."
+            ) from exc
 
 
 def main() -> None:
