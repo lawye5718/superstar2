@@ -62,8 +62,7 @@ def list_branches_by_date() -> List[Tuple[str, str]]:
     branches = []
     for line in output.splitlines():
         if DELIMITER not in line:
-            print(f"Skipping unexpected ref line: {line}", file=sys.stderr)
-            continue
+            raise RuntimeError(f"Unexpected ref line: {line}")
         date, name = line.split(DELIMITER, 1)
         branches.append((date, name))
     return branches
@@ -85,13 +84,13 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
     branches = list_branches_by_date()
     already_merged = merged_branches(target)
 
-    plan = [name for _, name in branches if name != target]
-    if not plan:
+    branches_to_merge = [name for _, name in branches if name != target]
+    if not branches_to_merge:
         print("No other local branches to merge.")
         return
 
     print(f"Merge order into '{target}' (oldest first):")
-    for idx, name in enumerate(plan, start=1):
+    for idx, name in enumerate(branches_to_merge, start=1):
         status = " (already merged)" if name in already_merged else ""
         print(f"{idx}. {name}{status}")
 
@@ -101,7 +100,7 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
     if current_branch != target:
         run_git(["checkout", target])
 
-    for name in plan:
+    for name in branches_to_merge:
         if name in already_merged:
             continue
         print(f"Merging {name} into {target} ...")
