@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-import sys
 from typing import List, Tuple
 
 
@@ -61,6 +60,8 @@ def list_branches_by_date() -> List[Tuple[str, str]]:
     ])
     branches = []
     for line in output.splitlines():
+        if not line.strip():
+            continue
         if DELIMITER not in line:
             raise RuntimeError(f"Unexpected ref line: {line}")
         date, name = line.split(DELIMITER, 1)
