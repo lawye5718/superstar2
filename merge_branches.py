@@ -14,7 +14,7 @@ import subprocess
 from typing import List, Tuple
 
 
-DELIMITER = "||"
+DELIMITER = "||"  # Separator used in git for-each-ref output; unlikely to appear in branch names.
 
 
 def run_git(args: List[str], check: bool = True) -> str:
@@ -83,7 +83,7 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
     branches = list_branches_by_date()
     already_merged = merged_branches(target)
 
-    branches_to_merge = [name for commit_date, name in branches if name != target]
+    branches_to_merge = [name for _commit_date, name in branches if name != target]
     if not branches_to_merge:
         print("No other local branches to merge.")
         return
