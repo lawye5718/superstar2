@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from typing import List, Tuple
 
 
@@ -40,6 +41,16 @@ def ensure_clean_worktree(allow_dirty: bool) -> None:
         raise RuntimeError("Working tree is not clean. Commit or stash changes first, or use --allow-dirty.")
 
 
+def ensure_branch_exists(branch: str) -> None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", branch],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Target branch '{branch}' does not exist locally.")
+
+
 def list_branches_by_date() -> List[Tuple[str, str]]:
     """Return (date, branch) sorted by committer date (oldest first)."""
     output = run_git([
@@ -51,6 +62,7 @@ def list_branches_by_date() -> List[Tuple[str, str]]:
     branches = []
     for line in output.splitlines():
         if DELIMITER not in line:
+            print(f"Skipping unexpected ref line: {line}", file=sys.stderr)
             continue
         date, name = line.split(DELIMITER, 1)
         branches.append((date, name))
@@ -67,6 +79,7 @@ def merged_branches(target: str) -> set[str]:
 
 def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
     ensure_clean_worktree(allow_dirty)
+    ensure_branch_exists(target)
 
     current_branch = get_current_branch()
     branches = list_branches_by_date()
@@ -103,8 +116,8 @@ def merge_branches(target: str, dry_run: bool, allow_dirty: bool) -> None:
             run_git(merge_args)
         except RuntimeError as exc:
             raise RuntimeError(
-                f"Merge from '{name}' into '{target}' failed. "
-                "Resolve conflicts and run `git merge --continue`, or run `git merge --abort` to cancel, then rerun the script."
+                f"Merge from '{name}' into '{target}' failed. See git output above. "
+                "If conflicts occurred, resolve them and run `git merge --continue`, or run `git merge --abort` to cancel before rerunning."
             ) from exc
 
 
