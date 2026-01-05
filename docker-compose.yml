@@ -7,14 +7,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/superstar_db
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
     volumes:
-      - ./backend:/app
+      - ./backend:/app  # 代码热重载
+      - ./backend_data/static:/app/static # ✅ 图片持久化
+      - ./backend_data/db:/app/db_data    # ✅ 数据库持久化 (如果是 SQLite)
+    environment:
+      - DATABASE_URL=sqlite:///./db_data/superstar.db # 指向持久化目录
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
 
   db:
     image: postgres:14

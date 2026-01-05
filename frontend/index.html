@@ -98,30 +98,68 @@
 
         <!-- 3. 管理员后台 -->
         <div v-else-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
-            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg mt-8">
-                <h2 class="text-2xl font-bold mb-6 flex items-center">🛠️ 管理员上架后台</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-bold mb-1">样图上传</label>
-                        <input type="file" @change="handleAdminFileUpload" class="w-full border p-2 rounded">
-                        <div v-if="newTemplate.cover_image_url" class="mt-2 w-32 h-40 bg-gray-100 rounded overflow-hidden">
-                            <img :src="newTemplate.cover_image_url" class="w-full h-full object-cover">
+            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- 左侧：上架 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📤 上架新模版</h2>
+                    <div class="space-y-4">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                            <input type="file" @change="handleAdminFileUpload" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <div v-if="!newTemplate.cover_image_url" class="text-gray-400">
+                                <p class="text-2xl">📷</p>
+                                <p class="text-xs">点击上传封面图</p>
+                            </div>
+                            <img v-else :src="newTemplate.cover_image_url" class="h-32 mx-auto object-cover rounded">
+                        </div>
+                        <input v-model="newTemplate.title" class="w-full border p-2 rounded text-sm" placeholder="标题">
+                        <div class="flex gap-2">
+                            <select v-model="newTemplate.category" class="w-1/2 border p-2 rounded text-sm">
+                                <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
+                            </select>
+                            <input v-model.number="newTemplate.price" type="number" class="w-1/2 border p-2 rounded text-sm" placeholder="价格">
+                        </div>
+                        <div class="bg-stone-50 p-3 rounded text-xs space-y-2">
+                            <input v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-1 rounded" placeholder="Base Prompt (Quality)">
+                            <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-1 rounded" rows="2" placeholder="Variable Prompt (Subject)"></textarea>
+                        </div>
+                        <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-2 rounded font-bold text-sm">
+                            {{ isAdminSubmitting ? 'Processing...' : 'Publish Template' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右侧：数据概览 (Real Data) -->
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h2 class="text-xl font-bold mb-4">📊 运营数据 (Real-time)</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <p class="text-xs text-blue-500 uppercase">Total Users</p>
+                                <!-- 绑定真实数据 -->
+                                <p class="text-2xl font-bold">{{ adminStats.total_users }}</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <p class="text-xs text-green-500 uppercase">Revenue</p>
+                                <!-- 绑定真实数据 -->
+                                <p class="text-2xl font-bold">¥{{ adminStats.total_revenue }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 bg-gray-50 p-4 rounded-lg">
+                             <p class="text-xs text-gray-500 uppercase">Total Orders</p>
+                             <p class="text-xl font-bold">{{ adminStats.total_orders }}</p>
                         </div>
                     </div>
-                    <input v-model="newTemplate.title" type="text" class="w-full border p-2 rounded" placeholder="标题">
-                    <select v-model="newTemplate.category" class="w-full border p-2 rounded">
-                        <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
-                    </select>
-                    <input v-model.number="newTemplate.price" type="number" class="w-full border p-2 rounded" placeholder="价格">
                     
-                    <div class="bg-gray-50 p-4 rounded-lg border">
-                        <h3 class="font-bold text-gray-700 mb-2">Prompt 配置</h3>
-                        <textarea v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Base Prompt"></textarea>
-                        <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Variable Prompt"></textarea>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h2 class="text-xl font-bold mb-4">👥 用户列表 (最新)</h2>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm border-b pb-2" v-for="usr in adminUsers" :key="usr.id">
+                                <span>{{ usr.username || usr.email }}</span>
+                                <span class="text-green-600">¥{{ usr.balance || 0 }}</span>
+                            </div>
+                            <p class="text-xs text-gray-400 text-center mt-2" v-if="adminUsers.length === 0">No users found</p>
+                        </div>
                     </div>
-                    <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold">
-                        {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
-                    </button>
                 </div>
             </div>
         </div>
@@ -217,7 +255,7 @@
 
 <script>
     const API_BASE = 'http://localhost:8000/api/v1'; 
-    const { createApp, ref, onMounted, reactive } = Vue;
+    const { createApp, ref, onMounted, reactive, watch } = Vue;
 
     createApp({
         setup() {
@@ -250,6 +288,10 @@
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
                 prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
             });
+            
+            // Admin Stats
+            const adminStats = ref({ total_users: 0, total_revenue: 0, total_orders: 0 });
+            const adminUsers = ref([]);
 
             // Axios Interceptor for Token
             axios.interceptors.request.use(config => {
@@ -416,7 +458,24 @@
                 galleryTemplates.value = res.data;
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
-
+            
+            const loadAdminData = async () => {
+                try {
+                    const statsRes = await axios.get(`${API_BASE}/admin/stats`);
+                    adminStats.value = statsRes.data;
+                    
+                    const usersRes = await axios.get(`${API_BASE}/admin/users?limit=10`);
+                    adminUsers.value = usersRes.data.items;
+                } catch (e) { console.error('Failed to load admin data:', e); }
+            };
+            
+            // 监听视图变化，当进入管理员视图时加载数据
+            watch(currentView, (newView) => {
+                if (newView === 'admin') {
+                    loadAdminData();
+                }
+            });
+            
             onMounted(init);
 
             return {

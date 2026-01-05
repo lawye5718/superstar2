@@ -19,4 +19,4 @@ api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
 
 # 管理员接口
 api_router.include_router(admin_templates.router, prefix="/admin/templates", tags=["admin"])
-api_router.include_router(admin_stats.router, prefix="/admin", tags=["admin"])
+api_router.include_router(admin_stats.router, prefix="/admin", tags=["admin-stats"])
