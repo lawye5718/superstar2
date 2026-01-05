@@ -1,6 +1,6 @@
 """User schemas"""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -9,6 +9,7 @@ from uuid import UUID
 class UserBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
+    username: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -18,14 +19,18 @@ class UserCreate(UserBase):
 
 class UserUpdate(UserBase):
     credits: Optional[int] = None
+    balance: Optional[float] = None
 
 
 class UserResponse(UserBase):
     id: str
-    credits: int
+    credits: float
+    balance: float
+    face_image_url: Optional[str] = None
+    gender: Optional[str] = None
+    is_superuser: bool = False
     roles: List[str]
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
