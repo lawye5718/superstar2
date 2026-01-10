@@ -55,8 +55,9 @@ POST /users/
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "email": "user@example.com",
-  "credits": 0,
-  "roles": ["user"],
+  "balance": 0.0,
+  "is_active": true,
+  "is_superuser": false,
   "created_at": "2023-01-01T00:00:00Z",
   "updated_at": "2023-01-01T00:00:00Z"
 }
@@ -68,43 +69,58 @@ POST /users/
 
 ### 2.2 获取用户信息
 
-根据用户ID获取用户信息。
+获取当前认证用户的信息。
 
 ```
-GET /users/{user_id}
+GET /users/me
 ```
-
-**路径参数:**
-- `user_id` (string, required): 用户UUID
 
 **响应:**
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "email": "user@example.com",
-  "credits": 100,
-  "roles": ["user"],
+  "username": "user123",
+  "balance": 50.0,
+  "face_image_url": "http://localhost:8000/static/uploads/user_face.jpg",
+  "is_active": true,
+  "is_superuser": false,
   "created_at": "2023-01-01T00:00:00Z",
   "updated_at": "2023-01-01T00:00:00Z"
 }
 ```
 
-### 2.3 更新用户信息
+### 2.3 更新用户头像
 
-更新用户信息。
+上传并更新用户的基准头像。
 
 ```
-PUT /users/{user_id}
+POST /users/face
 ```
 
-**路径参数:**
-- `user_id` (string, required): 用户UUID
+**表单数据:**
+- `file` (file, required): 图像文件
+- `gender` (string, optional): 性别 ("male"|"female"|"unisex", default: "female")
+
+**响应:**
+```json
+{
+  "url": "http://localhost:8000/static/uploads/user_face.jpg"
+}
+```
+
+### 2.4 用户充值
+
+为用户账户充值。
+
+```
+POST /users/topup
+```
 
 **请求体:**
 ```json
 {
-  "email": "newemail@example.com",
-  "credits": 150
+  "amount": 100
 }
 ```
 
@@ -112,205 +128,61 @@ PUT /users/{user_id}
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "newemail@example.com",
-  "credits": 150,
-  "roles": ["user"],
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-02T00:00:00Z"
-}
-```
-
-### 2.4 删除用户
-
-删除用户账户。
-
-```
-DELETE /users/{user_id}
-```
-
-**路径参数:**
-- `user_id` (string, required): 用户UUID
-
-**响应:**
-```json
-{
-  "message": "User deleted successfully"
-}
-```
-
-## 3. 模板 API
-
-### 3.1 创建模板
-
-创建新的生成模板。
-
-```
-POST /templates/
-```
-
-**请求体:**
-```json
-{
-  "title": "复古风格写真",
-  "gender": "Female",
-  "tags": ["复古", "大衣", "冬季"],
-  "config": {
-    "base_prompt": "High quality, 8k resolution, masterpiece",
-    "variable_prompt": "wearing green wool vintage coat, brown textured wall background",
-    "negative_prompt": "bad anatomy"
-  },
-  "is_approved": true,
-  "display_image_urls": [
-    "https://example.com/image1.jpg",
-    "https://example.com/image2.jpg"
-  ]
-}
-```
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "title": "复古风格写真",
-  "gender": "Female",
-  "tags": ["复古", "大衣", "冬季"],
-  "config": {
-    "base_prompt": "High quality, 8k resolution, masterpiece",
-    "variable_prompt": "wearing green wool vintage coat, brown textured wall background",
-    "negative_prompt": "bad anatomy"
-  },
-  "is_approved": true,
-  "display_image_urls": [
-    "https://example.com/image1.jpg",
-    "https://example.com/image2.jpg"
-  ],
+  "email": "user@example.com",
+  "balance": 150.0,
+  "is_active": true,
+  "is_superuser": false,
   "created_at": "2023-01-01T00:00:00Z",
   "updated_at": "2023-01-01T00:00:00Z"
 }
 ```
 
-### 3.2 获取模板列表
+## 3. 模板 API
 
-获取模板列表，支持分页。
+### 3.1 获取模板列表
+
+获取所有可用模板。
 
 ```
 GET /templates/
 ```
 
 **查询参数:**
-- `skip` (integer, optional): 跳过的记录数，默认为0
-- `limit` (integer, optional): 返回的记录数，默认为100
+- `category` (string, optional): 按类别过滤模板
 
 **响应:**
 ```json
 [
   {
-    "id": "550e8400-e29b-41d4-a716-446655440001",
-    "title": "复古风格写真",
-    "gender": "Female",
-    "tags": ["复古", "大衣", "冬季"],
-    "config": {
-      "base_prompt": "High quality, 8k resolution, masterpiece",
-      "variable_prompt": "wearing green wool vintage coat, brown textured wall background",
-      "negative_prompt": "bad anatomy"
-    },
-    "is_approved": true,
-    "display_image_urls": [
-      "https://example.com/image1.jpg"
-    ],
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-01-01T00:00:00Z"
+    "id": "template-uuid",
+    "title": "复古胶片风格",
+    "category": "复古",
+    "cover_image_url": "http://localhost:8000/static/uploads/template_cover.jpg",
+    "price": 9.9,
+    "usage_count": 125,
+    "created_at": "2023-01-01T00:00:00Z"
   }
 ]
 ```
 
-### 3.3 获取模板详情
+### 3.2 获取随机模板
 
-根据模板ID获取模板详情。
-
-```
-GET /templates/{template_id}
-```
-
-**路径参数:**
-- `template_id` (string, required): 模板UUID
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "title": "复古风格写真",
-  "gender": "Female",
-  "tags": ["复古", "大衣", "冬季"],
-  "config": {
-    "base_prompt": "High quality, 8k resolution, masterpiece",
-    "variable_prompt": "wearing green wool vintage coat, brown textured wall background",
-    "negative_prompt": "bad anatomy"
-  },
-  "is_approved": true,
-  "display_image_urls": [
-    "https://example.com/image1.jpg"
-  ],
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-### 3.4 更新模板
-
-更新模板信息。
+获取一个随机模板。
 
 ```
-PUT /templates/{template_id}
-```
-
-**路径参数:**
-- `template_id` (string, required): 模板UUID
-
-**请求体:**
-```json
-{
-  "title": "更新后的复古风格写真",
-  "is_approved": false
-}
+GET /templates/random
 ```
 
 **响应:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "title": "更新后的复古风格写真",
-  "gender": "Female",
-  "tags": ["复古", "大衣", "冬季"],
-  "config": {
-    "base_prompt": "High quality, 8k resolution, masterpiece",
-    "variable_prompt": "wearing green wool vintage coat, brown textured wall background",
-    "negative_prompt": "bad anatomy"
-  },
-  "is_approved": false,
-  "display_image_urls": [
-    "https://example.com/image1.jpg"
-  ],
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-02T00:00:00Z"
-}
-```
-
-### 3.5 删除模板
-
-删除模板。
-
-```
-DELETE /templates/{template_id}
-```
-
-**路径参数:**
-- `template_id` (string, required): 模板UUID
-
-**响应:**
-```json
-{
-  "message": "Template deleted successfully"
+  "id": "template-uuid",
+  "title": "复古胶片风格",
+  "category": "复古",
+  "cover_image_url": "http://localhost:8000/static/uploads/template_cover.jpg",
+  "price": 9.9,
+  "usage_count": 125,
+  "created_at": "2023-01-01T00:00:00Z"
 }
 ```
 
@@ -318,7 +190,7 @@ DELETE /templates/{template_id}
 
 ### 4.1 创建订单
 
-创建新订单。
+创建新的图像生成订单。
 
 ```
 POST /orders/
@@ -327,61 +199,27 @@ POST /orders/
 **请求体:**
 ```json
 {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "credits_purchased": 10,
-  "amount": 99.00,
-  "platform": "web",
-  "status": "PENDING"
+  "template_id": "template-uuid"
 }
 ```
 
 **响应:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440002",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "credits_purchased": 10,
-  "amount": 99.00,
-  "platform": "web",
+  "id": "order-uuid",
+  "user_id": "user-uuid",
+  "template_id": "template-uuid",
   "status": "PENDING",
-  "transaction_id": null,
+  "amount": 9.9,
+  "result_image_url": null,
   "created_at": "2023-01-01T00:00:00Z",
   "updated_at": "2023-01-01T00:00:00Z"
 }
 ```
 
-### 4.2 获取订单列表
+### 4.2 获取订单详情
 
-获取订单列表，支持分页。
-
-```
-GET /orders/
-```
-
-**查询参数:**
-- `skip` (integer, optional): 跳过的记录数，默认为0
-- `limit` (integer, optional): 返回的记录数，默认为100
-
-**响应:**
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440002",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "credits_purchased": 10,
-    "amount": 99.00,
-    "platform": "web",
-    "status": "PENDING",
-    "transaction_id": null,
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-01-01T00:00:00Z"
-  }
-]
-```
-
-### 4.3 获取订单详情
-
-根据订单ID获取订单详情。
+获取特定订单的详细信息。
 
 ```
 GET /orders/{order_id}
@@ -393,256 +231,203 @@ GET /orders/{order_id}
 **响应:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440002",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "credits_purchased": 10,
-  "amount": 99.00,
-  "platform": "web",
-  "status": "PENDING",
-  "transaction_id": null,
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-## 5. 画廊 API
-
-### 5.1 创建画廊项目
-
-创建新的画廊项目。
-
-```
-POST /galleries/
-```
-
-**请求体:**
-```json
-{
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "image_url_free": "https://example.com/free_image.jpg",
-  "image_url_paid": "https://example.com/paid_image.jpg",
-  "thumbnail_url": "https://example.com/thumbnail.jpg",
-  "is_public": true
-}
-```
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440003",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "image_url_free": "https://example.com/free_image.jpg",
-  "image_url_paid": "https://example.com/paid_image.jpg",
-  "thumbnail_url": "https://example.com/thumbnail.jpg",
-  "is_public": true,
-  "created_at": "2023-01-01T00:00:00Z"
-}
-```
-
-### 5.2 获取画廊列表
-
-获取画廊列表，支持分页。
-
-```
-GET /galleries/
-```
-
-**查询参数:**
-- `skip` (integer, optional): 跳过的记录数，默认为0
-- `limit` (integer, optional): 返回的记录数，默认为100
-
-**响应:**
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440003",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "template_id": "550e8400-e29b-41d4-a716-446655440001",
-    "image_url_free": "https://example.com/free_image.jpg",
-    "image_url_paid": "https://example.com/paid_image.jpg",
-    "thumbnail_url": "https://example.com/thumbnail.jpg",
-    "is_public": true,
-    "created_at": "2023-01-01T00:00:00Z"
-  }
-]
-```
-
-### 5.3 获取画廊详情
-
-根据画廊ID获取画廊详情。
-
-```
-GET /galleries/{gallery_id}
-```
-
-**路径参数:**
-- `gallery_id` (string, required): 画廊UUID
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440003",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "image_url_free": "https://example.com/free_image.jpg",
-  "image_url_paid": "https://example.com/paid_image.jpg",
-  "thumbnail_url": "https://example.com/thumbnail.jpg",
-  "is_public": true,
-  "created_at": "2023-01-01T00:00:00Z"
-}
-```
-
-## 6. 任务 API
-
-### 6.1 创建生成任务
-
-创建新的AI图像生成任务。
-
-```
-POST /tasks/
-```
-
-**请求体:**
-```json
-{
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "status": "PENDING",
-  "portrait_url": "https://example.com/portrait.jpg",
-  "error_message": null
-}
-```
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440004",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "status": "PENDING",
-  "portrait_url": "https://example.com/portrait.jpg",
-  "error_message": null,
-  "result_gallery_id": null,
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-### 6.2 获取任务列表
-
-获取任务列表，支持分页。
-
-```
-GET /tasks/
-```
-
-**查询参数:**
-- `skip` (integer, optional): 跳过的记录数，默认为0
-- `limit` (integer, optional): 返回的记录数，默认为100
-
-**响应:**
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440004",
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "template_id": "550e8400-e29b-41d4-a716-446655440001",
-    "status": "PENDING",
-    "portrait_url": "https://example.com/portrait.jpg",
-    "error_message": null,
-    "result_gallery_id": null,
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-01-01T00:00:00Z"
-  }
-]
-```
-
-### 6.3 获取任务详情
-
-根据任务ID获取任务详情。
-
-```
-GET /tasks/{task_id}
-```
-
-**路径参数:**
-- `task_id` (string, required): 任务UUID
-
-**响应:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440004",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
+  "id": "order-uuid",
+  "user_id": "user-uuid",
+  "template_id": "template-uuid",
   "status": "COMPLETED",
-  "portrait_url": "https://example.com/portrait.jpg",
-  "error_message": null,
-  "result_gallery_id": "550e8400-e29b-41d4-a716-446655440003",
+  "amount": 9.9,
+  "result_image_url": "http://localhost:8000/static/uploads/result_image.jpg",
   "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:30:00Z"
+  "updated_at": "2023-01-01T00:00:30Z"
 }
 ```
 
-### 6.4 更新任务
+### 4.3 获取用户订单列表
 
-更新任务信息。
+获取当前用户的订单列表。
 
 ```
-PUT /tasks/{task_id}
+GET /orders/
 ```
 
-**路径参数:**
-- `task_id` (string, required): 任务UUID
+**响应:**
+```json
+[
+  {
+    "id": "order-uuid",
+    "user_id": "user-uuid",
+    "template_id": "template-uuid",
+    "status": "COMPLETED",
+    "amount": 9.9,
+    "result_image_url": "http://localhost:8000/static/uploads/result_image.jpg",
+    "created_at": "2023-01-01T00:00:00Z",
+    "updated_at": "2023-01-01T00:00:30Z"
+  }
+]
+```
+
+## 5. 管理员 API
+
+### 5.1 模板管理
+
+#### 5.1.1 创建模板
+
+管理员创建新模板。
+
+```
+POST /admin/templates/
+```
 
 **请求体:**
 ```json
 {
-  "status": "PROCESSING",
-  "error_message": null
+  "title": "新模板标题",
+  "category": "风格类别",
+  "cover_image_url": "http://localhost:8000/static/uploads/template_cover.jpg",
+  "price": 19.9,
+  "prompt_config": {
+    "base_prompt": "base prompt text",
+    "variable_prompt": "variable prompt text",
+    "negative_prompt": "negative prompt text"
+  }
 }
 ```
 
 **响应:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440004",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "template_id": "550e8400-e29b-41d4-a716-446655440001",
-  "status": "PROCESSING",
-  "portrait_url": "https://example.com/portrait.jpg",
-  "error_message": null,
-  "result_gallery_id": null,
+  "id": "template-uuid",
+  "title": "新模板标题",
+  "category": "风格类别",
+  "cover_image_url": "http://localhost:8000/static/uploads/template_cover.jpg",
+  "price": 19.9,
+  "usage_count": 0,
+  "is_active": true,
   "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:15:00Z"
+  "updated_at": "2023-01-01T00:00:00Z"
 }
 ```
 
-## 7. 错误处理
+#### 5.1.2 删除模板
 
-当 API 请求失败时，将返回以下格式的错误信息：
+管理员删除模板。
 
+```
+DELETE /admin/templates/{id}
+```
+
+**路径参数:**
+- `id` (string, required): 模板UUID
+
+**响应:**
 ```json
 {
-  "detail": "错误描述信息"
+  "status": "success",
+  "message": "Template deleted"
 }
 ```
 
-常见错误包括：
+### 5.2 用户管理
 
-- `400 Bad Request`: 请求参数无效
-- `401 Unauthorized`: 认证失败
-- `403 Forbidden`: 无权限访问
-- `404 Not Found`: 请求的资源不存在
-- `422 Unprocessable Entity`: 请求数据验证失败
-- `500 Internal Server Error`: 服务器内部错误
+#### 5.2.1 获取用户列表
 
-## 8. 限流
+获取所有用户列表。
 
-API 实施请求限流以保护服务器资源。默认限制为每分钟100个请求，超过限制将返回 `429 Too Many Requests` 状态码。
+```
+GET /admin/users
+```
 
-## 9. 健康检查
+**查询参数:**
+- `skip` (integer, optional): 跳过的记录数，默认0
+- `limit` (integer, optional): 返回的最大记录数，默认50
+
+**响应:**
+```json
+{
+  "total": 10,
+  "items": [
+    {
+      "id": "user-uuid",
+      "email": "user@example.com",
+      "username": "username",
+      "balance": 50.0,
+      "is_active": true,
+      "is_superuser": false,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2023-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### 5.3 数据看板
+
+#### 5.3.1 获取运营数据
+
+获取实时运营数据看板。
+
+```
+GET /admin/stats/dashboard
+```
+
+**响应:**
+```json
+{
+  "total_users": 125,
+  "total_revenue": 2500.0,
+  "total_orders": 350,
+  "total_templates": 25
+}
+```
+
+## 6. 工具 API
+
+### 6.1 文件上传
+
+通用文件上传接口。
+
+```
+POST /utils/upload
+```
+
+**表单数据:**
+- `file` (file, required): 要上传的文件
+
+**响应:**
+```json
+{
+  "url": "http://localhost:8000/static/uploads/filename.jpg"
+}
+```
+
+## 7. 认证 API
+
+### 7.1 用户登录
+
+获取JWT访问令牌。
+
+```
+POST /auth/login/access-token
+Content-Type: application/x-www-form-urlencoded
+```
+
+**表单数据:**
+- `username` (string, required): 用户邮箱
+- `password` (string, required): 用户密码
+
+**响应:**
+```json
+{
+  "access_token": "jwt-token-string",
+  "token_type": "bearer"
+}
+```
+
+## 8. 健康检查
+
+### 8.1 健康检查端点
+
+检查应用程序健康状态。
 
 ```
 GET /health
@@ -656,6 +441,20 @@ GET /health
 }
 ```
 
----
-**API 版本**: 1.0  
-**最后更新**: 2025-01-04
+## 9. 错误处理
+
+API 使用标准HTTP状态码和一致的错误响应格式：
+
+```json
+{
+  "detail": "错误描述信息"
+}
+```
+
+## 10. 速率限制
+
+为防止滥用，某些端点实施了速率限制：
+
+- 文件上传: 10次/分钟
+- 认证相关: 5次/分钟
+- 其他端点: 60次/分钟

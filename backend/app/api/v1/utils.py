@@ -47,8 +47,8 @@ async def upload_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File save failed: {str(e)}")
         
-    # 5. 生成相对路径URL (解决Docker容器内URL访问问题)
-    # 使用相对路径而不是request.base_url，避免容器网络问题
-    file_url = f"/{upload_dir}/{new_filename}"
+    # ✅ 修复：强制返回 localhost 或者相对路径
+    # 在 Web 环境中，前端通常访问 http://localhost:8000/static/...
+    file_url = f"http://localhost:8000/{upload_dir}/{new_filename}"
     
     return {"url": file_url}

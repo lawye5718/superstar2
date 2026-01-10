@@ -1,0 +1,50 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Any
+
+from app.core.dependencies import get_db, get_current_active_user
+from app.models import Template, User
+from app.schemas import template as template_schemas
+
+router = APIRouter()
+
+@router.post("/", response_model=template_schemas.TemplateResponse)
+def create_template(
+    template_in: template_schemas.TemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=400, detail="Not enough permissions")
+        
+    template = Template(
+        title=template_in.title,
+        category=template_in.category,
+        cover_image_url=template_in.cover_image_url,
+        prompt_config=template_in.prompt_config,
+        price=template_in.price,
+        is_active=True,
+        usage_count=0
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return template
+
+# ✅ 新增：删除接口
+@router.delete("/{id}", response_model=dict)
+def delete_template(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=400, detail="Not enough permissions")
+        
+    template = db.query(Template).filter(Template.id == id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    db.delete(template)
+    db.commit()
+    return {"status": "success", "message": "Template deleted"}

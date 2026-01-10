@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. 后端 API 服务
+  backend:
+    build: 
+      context: ./backend
+    container_name: superstar_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app                # 代码热更新
+      - ./data/static:/app/static     # ✅ 图片持久化 (映射到本地 ./data/static)
+      - ./data/db:/app/db_data        # ✅ 数据库持久化
+    environment:
+      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=supersecretkey123
+    command: sh -c "python scripts/init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      - redis
+
+  # 2. Redis (消息队列)
+  redis:
+    image: redis:alpine
+    container_name: superstar_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # 3. Celery Worker (AI 任务执行者)
+  worker:
+    build: 
+      context: ./backend
+    container_name: superstar_worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - ./data/static:/app/static
+      - ./data/db:/app/db_data
+    depends_on:
+      - backend
+      - redis
+
+  # 4. 前端 (Nginx 托管静态文件)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: superstar_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

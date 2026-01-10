@@ -393,7 +393,7 @@
             // Admin Data
             const adminTab = ref('upload');
             const adminUserList = ref([]);
-            const adminStats = ref({ total_users: 0, total_revenue: 0, total_orders: 0, total_templates: 0 });
+            const adminStats = ref({ total_users: 0, total_revenue: 0, total_orders: 0 });
             const newTemplate = reactive({
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
                 prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }

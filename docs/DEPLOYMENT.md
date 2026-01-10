@@ -4,9 +4,9 @@
 
 ### 1.1 硬件要求
 
-- **CPU**: 2核或更高
-- **内存**: 4GB RAM 或更高（推荐8GB）
-- **存储**: 50GB 可用空间
+- **CPU**: 4核或更高
+- **内存**: 8GB RAM 或更高（推荐16GB）
+- **存储**: 100GB 可用空间
 - **网络**: 稳定的互联网连接
 
 ### 1.2 软件要求
@@ -18,7 +18,7 @@
 
 ### 1.3 依赖服务
 
-- **PostgreSQL**: 14 或更高版本
+- **PostgreSQL**: 14 或更高版本（生产环境）
 - **Redis**: 7 或更高版本
 - **Python**: 3.8 或更高版本（如使用手动部署）
 
@@ -102,7 +102,7 @@ STORAGE_TYPE=cos  # cos, s3, or local
    python3 -m venv venv
    source venv/bin/activate  # Linux/macOS
    # 或 venv\Scripts\activate  # Windows
-   pip install -r requirements.txt
+   pip install -r backend/requirements.txt
    ```
 
 2. **安装并配置 PostgreSQL**
@@ -138,118 +138,135 @@ STORAGE_TYPE=cos  # cos, s3, or local
    sudo systemctl enable redis
    ```
 
-#### 2.2.2 启动服务
+#### 2.2.2 启动应用
 
-1. **后端服务**
+1. **设置环境变量**
+   ```bash
+   export DATABASE_URL=postgresql+asyncpg://user:your_secure_password@localhost/superstar_db
+   export REDIS_URL=redis://localhost:6379
+   export SECRET_KEY=your_very_long_and_secure_secret_key
+   ```
+
+2. **启动后端服务**
    ```bash
    cd backend
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
    ```
 
-2. **前端服务**
+3. **启动 Celery Worker**
    ```bash
-   # 使用 Nginx 或其他 Web 服务器部署前端文件
-   sudo cp -r frontend/* /var/www/html/
+   cd backend
+   celery -A app.tasks.celery_app worker --loglevel=info
    ```
 
-## 3. 数据库管理
+4. **部署前端**
+   将 `frontend/index.html` 及相关资源部署到 Web 服务器（如 Nginx）。
 
-### 3.1 数据库迁移
+## 3. Docker Compose 详解
 
-使用 Alembic 进行数据库迁移：
+### 3.1 服务组成
 
-```bash
-# 进入后端目录
-cd backend
+Superstar AI 由以下服务组成：
 
-# 检查当前版本
-alembic current
+- **backend**: FastAPI 应用服务
+- **redis**: Redis 缓存和消息队列
+- **worker**: Celery 工作进程
+- **frontend**: 前端 Nginx 服务（可选）
 
-# 升级到最新版本
-alembic upgrade head
+### 3.2 docker-compose.yml 说明
 
-# 创建新迁移
-alembic revision --autogenerate -m "描述迁移内容"
+```yaml
+version: '3.8'
 
-# 回滚到上一个版本
-alembic downgrade -1
+services:
+  # 1. 后端 API 服务
+  backend:
+    build: 
+      context: ./backend
+    container_name: superstar_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app                # 代码热更新
+      - ./data/static:/app/static     # 图片持久化
+      - ./data/db:/app/db_data        # 数据库持久化
+    environment:
+      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=supersecretkey123
+    command: sh -c "python scripts/init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      - redis
+
+  # 2. Redis (消息队列)
+  redis:
+    image: redis:alpine
+    container_name: superstar_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # 3. Celery Worker (AI 任务执行者)
+  worker:
+    build: 
+      context: ./backend
+    container_name: superstar_worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - ./data/static:/app/static
+      - ./data/db:/app/db_data
+    depends_on:
+      - backend
+      - redis
+
+  # 4. 前端 (Nginx 托管静态文件)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: superstar_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
 ```
 
-### 3.2 数据备份
+## 4. 配置管理
 
-```bash
-# 备份数据库
-pg_dump -h localhost -U user -d superstar_db > backup_$(date +%Y%m%d_%H%M%S).sql
+### 4.1 环境变量详解
 
-# 恢复数据库
-psql -h localhost -U user -d superstar_db < backup_file.sql
-```
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| APP_NAME | Superstar AI | 应用名称 |
+| APP_VERSION | 2.0.0 | 应用版本 |
+| DATABASE_URL | sqlite+aiosqlite:///./superstar.db | 数据库连接字符串 |
+| DATABASE_SYNC_URL | sqlite:///./superstar.db | 同步数据库连接字符串 |
+| SECRET_KEY | 随机字符串 | JWT密钥，生产环境必须修改 |
+| ALGORITHM | HS256 | JWT算法 |
+| ACCESS_TOKEN_EXPIRE_MINUTES | 30 | 访问令牌过期时间（分钟） |
+| REDIS_URL | redis://localhost:6379 | Redis连接地址 |
+| VOLCANO_API_KEY | | 火山引擎API密钥 |
+| VOLCANO_SECRET_KEY | | 火山引擎密钥 |
+| CDN_DOMAIN | | CDN域名 |
+| STORAGE_TYPE | local | 存储类型 (local, cos, s3) |
 
-## 4. 服务管理
+### 4.2 安全配置
 
-### 4.1 Docker Compose 服务管理
+1. **修改默认密钥**
+   - 生产环境必须修改 `SECRET_KEY`
+   - 建议使用 `openssl rand -hex 32` 生成
 
-```bash
-# 启动所有服务
-docker-compose up -d
+2. **数据库安全**
+   - 使用强密码
+   - 定期备份
+   - 限制数据库访问权限
 
-# 停止所有服务
-docker-compose down
-
-# 重启特定服务
-docker-compose restart backend
-
-# 查看服务日志
-docker-compose logs -f backend
-
-# 查看服务状态
-docker-compose ps
-```
-
-### 4.2 后端服务配置
-
-#### 4.2.1 Gunicorn 配置（生产环境）
-
-创建 `gunicorn.conf.py`:
-
-```python
-# Gunicorn 配置
-bind = "0.0.0.0:8000"
-workers = 4
-worker_class = "uvicorn.workers.UvicornWorker"
-timeout = 120
-keepalive = 5
-max_requests = 1000
-max_requests_jitter = 100
-preload_app = True
-```
-
-启动命令：
-```bash
-gunicorn app.main:app -c gunicorn.conf.py
-```
-
-#### 4.2.2 Nginx 反向代理配置
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /static/ {
-        alias /path/to/static/files/;
-        expires 30d;
-    }
-}
-```
+3. **API密钥管理**
+   - 不要将API密钥硬编码在代码中
+   - 定期轮换密钥
 
 ## 5. 监控和日志
 
@@ -263,6 +280,9 @@ docker-compose logs -f backend
 
 # 查看所有服务日志
 docker-compose logs -f
+
+# 查看特定服务日志
+docker-compose logs -f worker
 ```
 
 ### 5.2 系统监控
@@ -291,9 +311,112 @@ fi
 docker-compose ps --format "table {{.Name}}\t{{.Status}}" | grep -E "(unhealthy|Exited|Paused)"
 ```
 
-## 6. 安全配置
+## 6. 备份和恢复
 
-### 6.1 SSL 配置
+### 6.1 数据备份
+
+```bash
+# 备份数据库
+docker exec -t superstar_db pg_dump -U user superstar_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 备份静态文件
+tar -czf static_backup_$(date +%Y%m%d_%H%M%S).tar.gz ./data/static/
+```
+
+### 6.2 数据恢复
+
+```bash
+# 恢复数据库
+docker exec -i superstar_db psql -U user -d superstar_db < backup_file.sql
+```
+
+## 7. 性能优化
+
+### 7.1 数据库优化
+
+1. **索引优化**
+   - 为常用查询字段创建索引
+   - 定期分析查询性能
+
+2. **连接池配置**
+   - 根据应用负载调整连接池大小
+   - 配置连接超时时间
+
+### 7.2 缓存策略
+
+1. **Redis缓存**
+   - 缓存热门模板
+   - 缓存用户会话
+
+2. **CDN加速**
+   - 静态资源使用CDN分发
+   - 图片压缩和优化
+
+## 8. 故障排除
+
+### 8.1 常见问题
+
+#### 问题1: 服务无法启动
+**症状**: `docker-compose up` 后服务立即退出
+**解决方案**: 
+- 检查 `.env` 文件配置
+- 查看详细日志 `docker-compose logs backend`
+
+#### 问题2: 数据库连接失败
+**症状**: 应用启动时报告数据库连接错误
+**解决方案**:
+- 确认数据库服务已启动
+- 检查数据库连接字符串
+
+#### 问题3: 文件上传失败
+**症状**: 上传文件时返回错误
+**解决方案**:
+- 检查存储目录权限
+- 确认磁盘空间充足
+
+### 8.2 诊断命令
+
+```bash
+# 检查容器状态
+docker-compose ps
+
+# 检查容器资源使用
+docker stats
+
+# 进入容器调试
+docker-compose exec backend bash
+
+# 重启特定服务
+docker-compose restart backend
+```
+
+## 9. 升级指南
+
+### 9.1 版本升级
+
+1. **备份数据**
+   ```bash
+   # 备份数据库和静态文件
+   ```
+
+2. **拉取最新代码**
+   ```bash
+   git pull origin main
+   ```
+
+3. **更新依赖**
+   ```bash
+   docker-compose build --no-cache
+   ```
+
+4. **启动服务**
+   ```bash
+   docker-compose up -d
+   ```
+
+## 10. 安全配置
+
+### 10.1 SSL 配置
 
 使用 Let's Encrypt 获取免费 SSL 证书：
 
@@ -302,67 +425,24 @@ sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 6.2 防火墙配置
+### 10.2 防火墙配置
 
 ```bash
-# Ubuntu/Debian
+# 只开放必要的端口
 sudo ufw allow 22    # SSH
 sudo ufw allow 80    # HTTP
 sudo ufw allow 443   # HTTPS
 sudo ufw enable
-
-# CentOS/RHEL
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-service=https
-sudo firewall-cmd --reload
 ```
 
-### 6.3 安全最佳实践
+## 11. 扩展配置
 
-1. **定期更新依赖包**
-   ```bash
-   pip list --outdated
-   pip install --upgrade package_name
-   ```
+### 11.1 负载均衡
 
-2. **使用强密码**
-   - 数据库密码
-   - JWT 密钥
-   - API 密钥
-
-3. **限制访问权限**
-   - 数据库访问权限
-   - 文件系统权限
-   - API 访问限制
-
-## 7. 性能优化
-
-### 7.1 数据库优化
-
-1. **索引优化**
-   - 为经常查询的字段创建索引
-   - 定期分析查询计划
-
-2. **连接池配置**
-   - 调整数据库连接池大小
-   - 配置连接超时时间
-
-### 7.2 缓存策略
-
-1. **Redis 缓存**
-   - 缓存热门数据
-   - 实现会话存储
-
-2. **CDN 配置**
-   - 静态资源加速
-   - 图片压缩和优化
-
-### 7.3 负载均衡
-
-使用 Nginx 或 HAProxy 实现负载均衡：
+对于高流量场景，可配置 Nginx 作为反向代理：
 
 ```nginx
-upstream backend {
+upstream superstar_backend {
     server localhost:8000;
     server localhost:8001;
     server localhost:8002;
@@ -370,128 +450,22 @@ upstream backend {
 
 server {
     listen 80;
-    
+    server_name your-domain.com;
+
     location / {
-        proxy_pass http://backend;
+        proxy_pass http://superstar_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-## 8. 故障排除
+### 11.2 集群部署
 
-### 8.1 常见问题
-
-1. **数据库连接失败**
-   - 检查数据库服务是否运行
-   - 检查连接字符串配置
-   - 检查防火墙设置
-
-2. **Redis 连接失败**
-   - 检查 Redis 服务状态
-   - 检查连接 URL 配置
-
-3. **应用启动失败**
-   - 检查依赖包安装
-   - 检查环境变量配置
-   - 查看应用日志
-
-### 8.2 诊断命令
-
-```bash
-# 检查服务状态
-docker-compose ps
-
-# 检查日志
-docker-compose logs backend
-
-# 检查网络连接
-docker-compose exec backend ping db
-docker-compose exec backend ping redis
-
-# 检查数据库连接
-docker-compose exec backend python -c "import sqlalchemy; engine = sqlalchemy.create_engine('your_db_url'); engine.connect()"
-```
-
-## 9. 备份和恢复
-
-### 9.1 自动备份脚本
-
-创建备份脚本 `backup.sh`:
-
-```bash
-#!/bin/bash
-
-BACKUP_DIR="/backup/superstar"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-mkdir -p $BACKUP_DIR
-
-# 备份数据库
-docker-compose exec db pg_dump -U user -d superstar_db > $BACKUP_DIR/db_backup_$DATE.sql
-
-# 备份配置文件
-cp .env $BACKUP_DIR/config_$DATE.env
-
-# 压缩备份文件
-tar -czf $BACKUP_DIR/backup_$DATE.tar.gz -C $BACKUP_DIR db_backup_$DATE.sql config_$DATE.env
-
-# 删除7天前的备份
-find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
-
-echo "Backup completed: $BACKUP_DIR/backup_$DATE.tar.gz"
-```
-
-### 9.2 恢复步骤
-
-1. **停止服务**
-   ```bash
-   docker-compose down
-   ```
-
-2. **恢复数据库**
-   ```bash
-   docker-compose exec -T db psql -U user -d superstar_db < backup_file.sql
-   ```
-
-3. **启动服务**
-   ```bash
-   docker-compose up -d
-   ```
-
-## 10. 升级指南
-
-### 10.1 小版本升级
-
-1. **拉取最新代码**
-   ```bash
-   git pull origin main
-   ```
-
-2. **更新依赖**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **执行数据库迁移**
-   ```bash
-   cd backend
-   alembic upgrade head
-   ```
-
-4. **重启服务**
-   ```bash
-   docker-compose down
-   docker-compose up -d
-   ```
-
-### 10.2 大版本升级
-
-1. **备份数据**
-2. **阅读升级说明**
-3. **在测试环境验证**
-4. **执行升级**
-5. **验证功能**
-
----
-**文档版本**: 1.0  
-**最后更新**: 2025-01-04
+对于大规模部署，可考虑以下架构：
+- 多个后端实例
+- 负载均衡器
+- 数据库主从复制
+- Redis集群
