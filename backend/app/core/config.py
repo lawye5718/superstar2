@@ -4,49 +4,36 @@ import os
 from typing import List
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
-    """Application settings"""
+    PROJECT_NAME: str = "Superstar AI"
+    API_V1_STR: str = "/api/v1"
     
-    # App
-    APP_NAME: str = "Superstar AI"
-    APP_VERSION: str = "2.0.0"
-    API_V1_PREFIX: str = "/api/v1"
+    # 1. 安全配置 (必须从环境变量读取)
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "unsafe_development_key_change_me")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7天
     
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./superstar.db")
-    DATABASE_SYNC_URL: str = os.getenv("DATABASE_SYNC_URL", "sqlite:///./superstar.db")
+    # 2. CORS 配置 (允许前端访问)
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost",
+        "*" 
+    ]
+
+    # 3. 数据库配置 (优先使用 Postgres)
+    # 默认值适配 docker-compose 中的 Postgres
+    SQLALCHEMY_DATABASE_URL: str = os.getenv(
+        "DATABASE_URL", 
+        "postgresql://postgres:postgres@db:5432/superstar"
+    )
+
+    # 4. 基础设施
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
     
-    # JWT
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    # CORS
-    CORS_ORIGINS: List[str] = ["*"]  # Should be restricted in production
-    
-    # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
-    
-    # Volcano Engine (AI generation)
-    VOLCANO_API_KEY: str = os.getenv("VOLCANO_API_KEY", "")
-    VOLCANO_SECRET_KEY: str = os.getenv("VOLCANO_SECRET_KEY", "")
-    
-    # Storage
-    CDN_DOMAIN: str = os.getenv("CDN_DOMAIN", "")
-    STORAGE_TYPE: str = os.getenv("STORAGE_TYPE", "local")  # local, cos, s3, etc.
-    
-    # Default values
-    DEFAULT_TEMPLATE_PRICE: float = 9.9
-    DEFAULT_RESULT_IMAGE_PLACEHOLDER: str = "/static/placeholder-result.jpg"
-    
+    # 5. 域名配置 (解决图片 URL 问题)
+    DOMAIN: str = os.getenv("DOMAIN", "http://localhost:8000")
+
     class Config:
         case_sensitive = True
 
-
-def get_settings():
-    """Get application settings"""
-    return Settings()
-
-
-settings = get_settings()
+settings = Settings()

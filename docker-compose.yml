@@ -6,46 +6,68 @@ services:
     build: 
       context: ./backend
     container_name: superstar_backend
+    restart: always
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app                # 代码热更新
-      - ./data/static:/app/static     # ✅ 图片持久化 (映射到本地 ./data/static)
-      - ./data/db:/app/db_data        # ✅ 数据库持久化
+      - ./backend:/app                # 代码热重载
+      - superstar_static:/app/static  # ✅ 图片持久化卷
     environment:
-      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      # ⚠️ 生产环境请修改 DOMAIN 为真实域名 (https://api.yourdomain.com)
+      - DOMAIN=http://localhost:8000
+      # ⚠️ 生产环境必须修改密钥
+      - SECRET_KEY=${SECRET_KEY:-changethis_in_production_secret_key_2026}
+      # 数据库连接串 (PostgreSQL)
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/superstar
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=supersecretkey123
-    command: sh -c "python scripts/init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "python scripts/init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
+      - db
       - redis
 
-  # 2. Redis (消息队列)
-  redis:
-    image: redis:alpine
-    container_name: superstar_redis
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-
-  # 3. Celery Worker (AI 任务执行者)
+  # 2. AI 任务 Worker (异步处理)
   worker:
     build: 
       context: ./backend
     container_name: superstar_worker
-    command: celery -A app.tasks.celery_app worker --loglevel=info
+    restart: always
     environment:
-      - DATABASE_URL=sqlite:///./db_data/superstar.db
+      - DOMAIN=http://localhost:8000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/superstar
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
-      - ./data/static:/app/static
-      - ./data/db:/app/db_data
+      - superstar_static:/app/static # ✅ 共享图片存储
     depends_on:
       - backend
+      - db
       - redis
+    # 启动 Celery Worker
+    command: celery -A app.tasks.celery_app worker --loglevel=info
 
-  # 4. 前端 (Nginx 托管静态文件)
+  # 3. 数据库 (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: superstar_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=superstar
+    volumes:
+      - superstar_db_data:/var/lib/postgresql/data # ✅ 数据库持久化
+    ports:
+      - "5432:5432"
+
+  # 4. 消息队列 (Redis)
+  redis:
+    image: redis:alpine
+    container_name: superstar_redis
+    restart: always
+    volumes:
+      - superstar_redis_data:/data
+
+  # 5. 前端服务
   frontend:
     build:
       context: ./frontend
@@ -54,3 +76,8 @@ services:
       - "8080:80"
     depends_on:
       - backend
+
+volumes:
+  superstar_static:
+  superstar_db_data:
+  superstar_redis_data:

@@ -2,80 +2,44 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Any
 
-from app.core.database import get_sync_db
-from app.core.dependencies import get_current_user_id
-from app.models.database import Template, GenderEnum, User
-from app.schemas.template import TemplateResponse
-from pydantic import BaseModel
-from typing import Optional, Dict, Any as AnyType
-
-
-class AdminTemplateCreate(BaseModel):
-    title: str
-    category: str  # 对应前端的分类
-    cover_image_url: str  # 对应前端的封面图
-    prompt_config: Optional[Dict[str, AnyType]] = {}  # 前端的prompt配置
-    price: float = 9.9  # 价格
-
+from app.core.dependencies import get_db, get_current_active_user
+from app.models import Template, User
+from app.schemas import template as template_schemas
 
 router = APIRouter()
 
-@router.post("/", response_model=TemplateResponse)
+@router.post("/", response_model=template_schemas.TemplateResponse)
 def create_template(
-    template_in: AdminTemplateCreate,
-    db: Session = Depends(get_sync_db),
-    current_user_id: str = Depends(get_current_user_id),
+    template_in: template_schemas.TemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
-    """
-    管理员创建新模版 (Create new template)
-    """
-    admin = db.query(User).filter(User.id == current_user_id).first()
-    if not admin or not getattr(admin, "is_superuser", False):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    # Map category string to GenderEnum
-    gender_map = {
-        "MALE": GenderEnum.MALE,
-        "FEMALE": GenderEnum.FEMALE,
-        "COUPLE": GenderEnum.COUPLE,
-        "UNISEX": GenderEnum.UNISEX,
-        "Male": GenderEnum.MALE,
-        "Female": GenderEnum.FEMALE,
-        "Couple": GenderEnum.COUPLE,
-        "Unisex": GenderEnum.UNISEX,
-    }
-    
-    gender = gender_map.get(template_in.category, GenderEnum.UNISEX)
-    
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=400, detail="Not enough permissions")
+        
     template = Template(
         title=template_in.title,
-        gender=gender,
-        tags=[template_in.category],
-        display_image_urls=[template_in.cover_image_url] if template_in.cover_image_url else [],
-        config=template_in.prompt_config if template_in.prompt_config else {},
+        category=template_in.category,
+        cover_image_url=template_in.cover_image_url,
+        prompt_config=template_in.prompt_config,
         price=template_in.price,
-        is_approved=True,
+        is_active=True,
         usage_count=0
     )
     db.add(template)
     db.commit()
     db.refresh(template)
-    
     return template
 
-
+# ✅ 新增：删除接口
 @router.delete("/{id}", response_model=dict)
 def delete_template(
-    id: str,  # Changed to str to match UUID
-    db: Session = Depends(get_sync_db),
-    current_user_id: str = Depends(get_current_user_id),
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
-    """
-    管理员删除模版 (Admin delete template)
-    """
-    admin = db.query(User).filter(User.id == current_user_id).first()
-    if not admin or not getattr(admin, "is_superuser", False):
-        raise HTTPException(status_code=403, detail="Admin access required")
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=400, detail="Not enough permissions")
         
     template = db.query(Template).filter(Template.id == id).first()
     if not template:

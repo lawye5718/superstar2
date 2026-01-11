@@ -1,22 +1,21 @@
-"""API v1 router"""
-
 from fastapi import APIRouter
-from . import users, orders, templates, utils, auth
-from .admin import templates as admin_templates, stats as admin_stats
+from app.api.v1 import users, orders, templates, utils, tasks, galleries, auth
+from app.api.v1.admin import templates as admin_templates
+from app.api.v1.admin import stats as admin_stats # ✅ 导入 Stats
 
 api_router = APIRouter()
 
-# 核心认证接口 (Login) - 修复点：之前漏掉了
+# 基础功能
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
 
-# 用户侧接口
+# 用户业务
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(templates.router, prefix="/templates", tags=["templates"])
+api_router.include_router(galleries.router, prefix="/galleries", tags=["galleries"])
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
-# 通用/工具接口
-api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
-
-# 管理员接口
+# 管理员业务
 api_router.include_router(admin_templates.router, prefix="/admin/templates", tags=["admin"])
-api_router.include_router(admin_stats.router, prefix="/admin", tags=["admin-stats"])
+api_router.include_router(admin_stats.router, prefix="/admin/stats", tags=["admin"]) # ✅ 注册路由

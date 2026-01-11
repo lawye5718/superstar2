@@ -3,21 +3,21 @@
 import asyncio
 import logging
 import os
-from sqlalchemy.orm import Session
-
-# 确保能导入 app 模块，将当前目录加入 path
 import sys
+
+# 将 backend 加入 python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine, Base
-from app.models import User, Template
+from app.models import User
 from app.core.security import get_password_hash
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def init_db(db: Session) -> None:
-    # 0. 确保表存在
+    # 0. 确保表结构存在
     Base.metadata.create_all(bind=engine)
 
     # 1. 创建超级管理员
@@ -31,28 +31,15 @@ def init_db(db: Session) -> None:
             hashed_password=get_password_hash("admin123"),
             balance=999999.0,
             is_active=True,
-            is_superuser=True, # 赋予权限
+            is_superuser=True, # ✅ 关键权限
         )
         db.add(user)
         db.commit()
     else:
         logger.info("Superuser already exists.")
 
-    # 2. 创建示例模版 (如果为空)
-    if db.query(Template).count() == 0:
-        logger.info("Creating demo templates...")
-        demo_tpl = Template(
-            title="示例-复古胶片",
-            category="复古",
-            price=9.9,
-            cover_image_url="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
-            prompt_config={"base": "vintage style", "var": "coat"}
-        )
-        db.add(demo_tpl)
-        db.commit()
-
 if __name__ == "__main__":
-    logger.info("Creating initial data")
+    logger.info("Initializing database...")
     db = SessionLocal()
     init_db(db)
-    logger.info("Initial data created")
+    logger.info("Database initialization completed.")
