@@ -31,7 +31,7 @@ def get_admin_stats(
     total_revenue = db.query(func.coalesce(func.sum(Order.amount), 0)).scalar() or 0
     total_templates = db.query(func.count(Template.id)).scalar() or 0
     paid_users = (
-        db.query(func.count(func.distinct(Order.user_id))).filter(Order.credits_purchased > 0).scalar() or 0
+        db.query(func.count(func.distinct(Order.user_id))).filter(Order.amount > 0).scalar() or 0
     )
 
     return AdminStatsResponse(
@@ -58,7 +58,7 @@ def get_admin_dashboard_stats(
     total_revenue = db.query(func.coalesce(func.sum(Order.amount), 0)).filter(Order.status == 'COMPLETED').scalar() or 0
     
     # 3. 总订单数
-    total_orders = db.query(func.count(Order.id)).filter(Order.status == 'COMPLETED').scalar() or 0
+    total_orders = db.query(func.count(Order.id)).filter(Order.status.in_(['COMPLETED', 'PENDING', 'PROCESSING'])).scalar() or 0
     
     # 4. 模板数量
     total_templates = db.query(func.count(Template.id)).scalar() or 0
