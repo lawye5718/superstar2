@@ -97,13 +97,13 @@ async def upload_face(
     
     try:
         # 使用腾讯云COS上传图片
-        result = await image_processor_manager.upload_and_process_image(content, file.filename)
+        result = await image_processor_manager.upload_example_image(content, file.filename)
         
         if not result["success"]:
             raise HTTPException(status_code=500, detail=result.get("error", "Upload failed"))
         
         # 获取COS上的图片URL
-        file_url = result["processed_url"]
+        file_url = result["url"]
         
         user = db.query(User).filter(User.id == current_user_id).first()
         if not user:

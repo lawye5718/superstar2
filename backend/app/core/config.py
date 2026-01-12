@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
     
     # 火山引擎配置
+    VOLC_API_URL: str = os.getenv("VOLC_API_URL", "https://ark.cn-beijing.volces.com/api/v3/images/generations")
+    VOLC_MODEL_ID: str = os.getenv("VOLC_MODEL_ID", "doubao-seedream-4.0")
+    VOLC_API_KEY: str = os.getenv("VOLC_API_KEY", "")
     VOLC_ACCESS_KEY: str = os.getenv("VOLC_ACCESS_KEY", "")
     VOLC_SECRET_KEY: str = os.getenv("VOLC_SECRET_KEY", "")
     VOLC_REGION: str = os.getenv("VOLC_REGION", "cn-north-1")

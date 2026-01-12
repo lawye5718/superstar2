@@ -15,6 +15,4 @@ redis==5.0.1
 psycopg2-binary==2.9.9
 httpx==0.25.1
 # --- 图片处理和云存储组件 ---
-tencentcloud-sdk-python==3.0.813
 cos-python-sdk-v5==1.9.23
-volcengine==1.0.131

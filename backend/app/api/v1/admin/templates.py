@@ -10,7 +10,7 @@ from app.core.image_processor import image_processor_manager
 router = APIRouter()
 
 @router.post("/", response_model=template_schemas.TemplateResponse)
-def create_template(
+async def create_template(
     title: str = Form(...),
     gender: str = Form(...),
     tags: str = Form(...),  # 逗号分隔的标签
@@ -38,10 +38,10 @@ def create_template(
     if example_image and example_image.filename:
         try:
             content = await example_image.read()
-            result = await image_processor_manager.upload_and_process_image(
+            result = await image_processor_manager.upload_example_image(
                 content, example_image.filename)
             if result["success"]:
-                display_image_urls.append(result["processed_url"])
+                display_image_urls.append(result["url"])
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload example image: {str(e)}")
     
@@ -77,7 +77,7 @@ def delete_template(
     return {"status": "success"}
 
 @router.put("/{id}", response_model=template_schemas.TemplateResponse)
-def update_template(
+async def update_template(
     id: int,
     title: str = Form(None),
     gender: str = Form(None),
@@ -121,10 +121,10 @@ def update_template(
     if example_image and example_image.filename:
         try:
             content = await example_image.read()
-            result = await image_processor_manager.upload_and_process_image(
+            result = await image_processor_manager.upload_example_image(
                 content, example_image.filename)
             if result["success"]:
-                template.display_image_urls = [result["processed_url"]]
+                template.display_image_urls = [result["url"]]
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to upload example image: {str(e)}")
     

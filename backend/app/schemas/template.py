@@ -1,6 +1,6 @@
 """Template schemas"""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
@@ -35,6 +35,19 @@ class TemplateResponse(TemplateBase):
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # 新增：计算属性，供前端直接使用
+    cover_image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+    # 使用 Pydantic 的 model_validator 来填充 cover_image_url
+    @model_validator(mode='after')
+    def set_cover_image(self):
+        if self.display_image_urls and len(self.display_image_urls) > 0:
+            self.cover_image_url = self.display_image_urls[0]
+        else:
+            # 设置一个默认占位图
+            self.cover_image_url = "https://via.placeholder.com/400x600?text=No+Image"
+        return self

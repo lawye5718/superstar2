@@ -38,13 +38,13 @@ async def upload_file(file: UploadFile = File(...)):
             pass # 严格模式应抛错，这里为兼容性暂放宽
         
         # 使用腾讯云COS上传图片
-        result = await image_processor_manager.upload_and_process_image(content, file.filename)
+        result = await image_processor_manager.upload_example_image(content, file.filename)
         
         if not result["success"]:
             raise HTTPException(status_code=500, detail=result.get("error", "Upload failed"))
         
         # 返回COS上的URL
-        file_url = result["processed_url"]
+        file_url = result["url"]
         
         return {"url": file_url, "cos_key": result.get("cos_key")}
         
