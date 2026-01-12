@@ -30,8 +30,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 初始化数据库表
-Base.metadata.create_all(bind=engine)
+# Initialize database tables (only if DB is accessible)
+try:
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables initialized successfully")
+except Exception as e:
+    logger.warning(f"Could not initialize database tables: {str(e)}")
+    logger.warning("Database will be initialized on first request")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -52,11 +52,12 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Security(sec
     return verify_token(token)
 
 
-def get_current_user(db: Session = Depends(get_sync_db)):
+def get_current_user(db: Session = Depends(get_sync_db), credentials: HTTPAuthorizationCredentials = Security(security)):
     """
     获取当前用户
     """
-    user_id = get_current_user_id()
+    token = credentials.credentials
+    user_id = verify_token(token)
     user = db.query(User).filter(User.id == user_id).first()
     
     # 🛑【严重修复】：删除了此处自动创建用户的代码
@@ -72,4 +73,14 @@ def get_current_user(db: Session = Depends(get_sync_db)):
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
+    return user
+
+
+def get_current_active_user(db: Session = Depends(get_sync_db), credentials: HTTPAuthorizationCredentials = Security(security)):
+    """
+    获取当前活跃用户 (检查is_active状态)
+    """
+    user = get_current_user(db=db, credentials=credentials)
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
     return user
