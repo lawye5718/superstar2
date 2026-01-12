@@ -14,6 +14,7 @@ from app.core.security import get_password_hash
 from app.models.database import User
 from app.schemas.user import UserCreate, UserResponse
 from app.core.file_validator import validate_uploaded_file # ✅ 导入校验器
+from app.core.image_processor import image_processor_manager
 
 router = APIRouter()
 
@@ -94,28 +95,27 @@ async def upload_face(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-    upload_dir = "static/uploads"
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    new_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(upload_dir, new_filename)
-    
     try:
-        async with aiofiles.open(file_path, 'wb') as out_file:
-            await out_file.write(content)
+        # 使用腾讯云COS上传图片
+        result = await image_processor_manager.upload_and_process_image(content, file.filename)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Upload failed"))
+        
+        # 获取COS上的图片URL
+        file_url = result["processed_url"]
+        
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        user.face_image_url = file_url
+        user.gender = gender
+        db.commit()
+        
+        return {"status": "success", "url": file_url, "cos_key": result.get("cos_key")}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-        
-    # ✅ 修复：使用配置中的域名，而非 request.base_url (防止反向代理问题)
-    from app.core.config import settings
-    file_url = f"{settings.DOMAIN}/{upload_dir}/{new_filename}"
-    
-    user = db.query(User).filter(User.id == current_user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    user.face_image_url = file_url
-    user.gender = gender
-    db.commit()
-    
-    return {"status": "success", "url": file_url}
+        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")

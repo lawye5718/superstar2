@@ -32,6 +32,17 @@ class Settings(BaseSettings):
     
     # 上传限制
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB
+    
+    # 火山引擎配置
+    VOLC_ACCESS_KEY: str = os.getenv("VOLC_ACCESS_KEY", "")
+    VOLC_SECRET_KEY: str = os.getenv("VOLC_SECRET_KEY", "")
+    VOLC_REGION: str = os.getenv("VOLC_REGION", "cn-north-1")
+    
+    # 腾讯云COS配置
+    COS_SECRET_ID: str = os.getenv("COS_SECRET_ID", "")
+    COS_SECRET_KEY: str = os.getenv("COS_SECRET_KEY", "")
+    COS_REGION: str = os.getenv("COS_REGION", "ap-beijing")
+    COS_BUCKET: str = os.getenv("COS_BUCKET", "")
 
     class Config:
         case_sensitive = True

@@ -3,6 +3,7 @@ import aiofiles
 import os
 import uuid
 from app.core.config import settings
+from app.core.image_processor import image_processor_manager
 
 router = APIRouter()
 
@@ -15,18 +16,16 @@ async def upload_file(file: UploadFile = File(...)):
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Invalid file format")
     
-    # 兼容 Docker 路径
-    upload_dir = "static/uploads"
-    full_path = "/app/static/uploads" if os.path.exists("/app") else "static/uploads"
-    os.makedirs(full_path, exist_ok=True)
+    # 读取文件内容
+    content = await file.read()
     
-    new_filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = os.path.join(full_path, new_filename)
+    # 验证文件大小
+    if len(content) > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large")
     
     try:
         # 读取前几个字节验证 Magic Number (增强安全性)
-        header = await file.read(4)
-        await file.seek(0)
+        header = content[:4]
         
         # 简单 Magic Number 检查 (JPEG/PNG)
         # JPEG: FF D8 FF
@@ -37,14 +36,19 @@ async def upload_file(file: UploadFile = File(...)):
             
         if not is_valid and file_ext != '.webp': # 简化处理
             pass # 严格模式应抛错，这里为兼容性暂放宽
-            
-        async with aiofiles.open(file_path, 'wb') as out_file:
-            while content := await file.read(1024 * 1024):
-                await out_file.write(content)
-                
+        
+        # 使用腾讯云COS上传图片
+        result = await image_processor_manager.upload_and_process_image(content, file.filename)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Upload failed"))
+        
+        # 返回COS上的URL
+        file_url = result["processed_url"]
+        
+        return {"url": file_url, "cos_key": result.get("cos_key")}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Save error: {str(e)}")
-    
-    # 返回完整 URL
-    file_url = f"{settings.DOMAIN}/static/uploads/{new_filename}"
-    return {"url": file_url}
+        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")

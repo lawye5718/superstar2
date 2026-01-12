@@ -116,6 +116,11 @@
                             <input v-model.number="newTemplate.price" type="number" class="border p-2 w-full rounded" placeholder="价格">
                             <select v-model="newTemplate.category" class="border p-2 w-full rounded"><option v-for="c in categories" :value="c">{{c}}</option></select>
                         </div>
+                        <input v-model="newTemplate.gender" class="border p-2 w-full rounded" placeholder="性别 (Male/Female/Couple/Unisex)">
+                        <input v-model="newTemplate.tags" class="border p-2 w-full rounded" placeholder="标签 (逗号分隔)">
+                        <textarea v-model="newTemplate.config" class="border p-2 w-full rounded" placeholder="配置 (JSON格式)"></textarea>
+                        <input type="file" @change="handleExampleImageUpload" class="w-full" placeholder="上传实例图片">
+                        <div v-if="newTemplate.example_image_url" class="h-32"><img :src="newTemplate.example_image_url" class="h-full rounded"></div>
                     </div>
                     <div class="space-y-4">
                         <textarea v-model="newTemplate.prompt_config.base_prompt" class="border p-2 w-full rounded" placeholder="Base Prompt"></textarea>
@@ -255,7 +260,7 @@
             const adminTab = ref('upload');
             const adminUserList = ref([]);
             const adminStats = ref({ total_users: 0, total_revenue: 0, total_orders: 0 });
-            const newTemplate = reactive({ title: '', category: '复古', price: 9.9, cover_image_url: '', prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' } });
+            const newTemplate = reactive({ title: '', category: '复古', price: 9.9, cover_image_url: '', gender: 'Unisex', tags: '', config: '{"base_prompt": "", "variable_prompt": "", "negative_prompt": ""}', example_image_url: '', prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' } });
 
             // Axios Setup
             axios.interceptors.request.use(config => {
@@ -354,10 +359,49 @@
                 const file = e.target.files[0]; const fd = new FormData(); fd.append('file', file);
                 try { const res = await axios.post(`${API_BASE}/utils/upload`, fd); newTemplate.cover_image_url = res.data.url; } catch { alert("Upload Failed"); }
             };
+            
+            const handleExampleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    newTemplate.example_image_file = file;  // 保存文件引用
+                    // 创建预览URL
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        newTemplate.example_image_url = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
 
             const submitNewTemplate = async () => {
                 isAdminSubmitting.value = true;
-                try { await axios.post(`${API_BASE}/admin/templates/`, newTemplate); alert("Published"); loadGallery(); } catch { alert("Failed"); } finally { isAdminSubmitting.value = false; }
+                try {
+                    const formData = new FormData();
+                    formData.append('title', newTemplate.title);
+                    formData.append('gender', newTemplate.gender);
+                    formData.append('tags', newTemplate.tags);
+                    formData.append('price', newTemplate.price);
+                    formData.append('is_approved', true);
+                    formData.append('config', newTemplate.config);
+                    
+                    // 如果有实例图片文件，添加到formData
+                    if (newTemplate.example_image_file) {
+                        formData.append('example_image', newTemplate.example_image_file);
+                    }
+                    
+                    await axios.post(`${API_BASE}/admin/templates/`, formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+                    alert("Published");
+                    loadGallery();
+                } catch (error) {
+                    console.error('Template creation failed:', error);
+                    alert("Failed: " + (error.response?.data?.detail || error.message));
+                } finally {
+                    isAdminSubmitting.value = false;
+                }
             };
 
             const deleteTemplate = async (id) => {
