@@ -1,6 +1,6 @@
 """Order schemas"""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -13,7 +13,22 @@ class OrderBase(BaseModel):
 
 class OrderCreate(OrderBase):
     """Schema for creating an order"""
-    pass
+    template_id: str  # Make required for order creation
+    
+    @field_validator('template_id')
+    @classmethod
+    def validate_template_id(cls, v):
+        """Validate template_id is a valid UUID"""
+        if not v or not v.strip():
+            raise ValueError('template_id is required')
+        # Basic UUID format validation
+        try:
+            # Check if it's a valid UUID format
+            import uuid
+            uuid.UUID(v)
+        except (ValueError, AttributeError):
+            raise ValueError('template_id must be a valid UUID')
+        return v.strip()
 
 
 class OrderUpdate(BaseModel):
