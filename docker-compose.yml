@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. 后端 API 服务
+  # 1. 后端 API
   backend:
     build: 
       context: ./backend
@@ -10,14 +10,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app                # 代码热重载
-      - superstar_static:/app/static  # ✅ 图片持久化卷
+      - ./backend:/app
+      - superstar_static:/app/static  # 图片持久化
     environment:
-      # ⚠️ 生产环境请修改 DOMAIN 为真实域名 (https://api.yourdomain.com)
       - DOMAIN=http://localhost:8000
-      # ⚠️ 生产环境必须修改密钥
-      - SECRET_KEY=${SECRET_KEY:-changethis_in_production_secret_key_2026}
-      # 数据库连接串 (PostgreSQL)
+      - SECRET_KEY=${SECRET_KEY:-CHANGE_THIS_IN_PROD_9s8f7d6f5g4h}
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/superstar
       - REDIS_URL=redis://redis:6379/0
     command: sh -c "python scripts/init_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -25,7 +22,7 @@ services:
       - db
       - redis
 
-  # 2. AI 任务 Worker (异步处理)
+  # 2. 异步 Worker
   worker:
     build: 
       context: ./backend
@@ -37,15 +34,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
-      - superstar_static:/app/static # ✅ 共享图片存储
+      - superstar_static:/app/static
     depends_on:
       - backend
       - db
       - redis
-    # 启动 Celery Worker
     command: celery -A app.tasks.celery_app worker --loglevel=info
 
-  # 3. 数据库 (PostgreSQL)
+  # 3. 数据库
   db:
     image: postgres:15-alpine
     container_name: superstar_db
@@ -55,11 +51,11 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=superstar
     volumes:
-      - superstar_db_data:/var/lib/postgresql/data # ✅ 数据库持久化
+      - superstar_db_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
-  # 4. 消息队列 (Redis)
+  # 4. 缓存/队列
   redis:
     image: redis:alpine
     container_name: superstar_redis
@@ -67,7 +63,7 @@ services:
     volumes:
       - superstar_redis_data:/data
 
-  # 5. 前端服务
+  # 5. 前端
   frontend:
     build:
       context: ./frontend

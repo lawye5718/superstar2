@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -13,15 +13,11 @@ def get_admin_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
-    """
-    Get real-time admin dashboard statistics.
-    """
     if not current_user.is_superuser:
         raise HTTPException(status_code=400, detail="Not enough permissions")
     
-    # 统计逻辑
     total_users = db.query(User).count()
-    # 计算所有状态为 COMPLETED 的订单总金额
+    # 统计已完成订单的总收入
     total_revenue = db.query(func.sum(Order.amount)).filter(Order.status == 'COMPLETED').scalar() or 0.0
     total_orders = db.query(Order).count()
 
