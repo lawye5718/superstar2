@@ -121,7 +121,7 @@ class TestUserEndpoints:
     def test_get_current_user_unauthorized(self, client):
         """Test getting current user without authentication"""
         response = client.get("/api/v1/users/me")
-        assert response.status_code == 403  # No authorization header
+        assert response.status_code == 401  # Unauthorized - no credentials provided
 
 
 class TestOrderEndpoints:

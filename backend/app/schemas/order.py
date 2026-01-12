@@ -1,9 +1,9 @@
 """Order schemas"""
 
+import uuid
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
-from uuid import UUID
 from app.models.database import OrderStatusEnum
 
 
@@ -24,7 +24,6 @@ class OrderCreate(OrderBase):
         # Basic UUID format validation
         try:
             # Check if it's a valid UUID format
-            import uuid
             uuid.UUID(v)
         except (ValueError, AttributeError):
             raise ValueError('template_id must be a valid UUID')

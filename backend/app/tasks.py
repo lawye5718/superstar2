@@ -1,7 +1,11 @@
 """Celery tasks configuration and task definitions"""
 
+import logging
 from celery import Celery
 from app.core.config import settings
+
+# Configure logging at module level
+logger = logging.getLogger(__name__)
 
 # Initialize Celery app
 celery_app = Celery(
@@ -37,9 +41,7 @@ def generate_image_task(self, task_id: str):
     from app.core.database import SessionLocal
     from app.models.database import GenerationTask, TaskStatusEnum, UserGallery
     from app.services.gallery_service import GalleryService
-    import logging
     
-    logger = logging.getLogger(__name__)
     db = SessionLocal()
     
     try:
@@ -106,9 +108,7 @@ def cleanup_old_tasks():
     from app.core.database import SessionLocal
     from app.models.database import GenerationTask, TaskStatusEnum
     from datetime import datetime, timedelta
-    import logging
     
-    logger = logging.getLogger(__name__)
     db = SessionLocal()
     
     try:

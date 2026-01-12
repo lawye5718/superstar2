@@ -8,6 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Default template price constant
+DEFAULT_TEMPLATE_PRICE = 9.9
+
 
 class OrderService:
     def __init__(self, db: Session):
@@ -30,7 +33,7 @@ class OrderService:
                     raise HTTPException(404, "Template not found")
 
                 # 计算价格
-                price = float(template.price) if hasattr(template, 'price') and template.price else 9.9
+                price = float(template.price) if hasattr(template, 'price') and template.price else DEFAULT_TEMPLATE_PRICE
                 
                 # 检查余额
                 if user.credits < price:

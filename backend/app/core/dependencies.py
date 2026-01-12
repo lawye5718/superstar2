@@ -78,9 +78,7 @@ def get_current_user(db: Session = Depends(get_sync_db), credentials: HTTPAuthor
 
 def get_current_active_user(db: Session = Depends(get_sync_db), credentials: HTTPAuthorizationCredentials = Security(security)):
     """
-    获取当前活跃用户 (检查is_active状态)
+    获取当前活跃用户 (alias for get_current_user for backward compatibility)
+    Note: get_current_user already checks is_active status
     """
-    user = get_current_user(db=db, credentials=credentials)
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return user
+    return get_current_user(db=db, credentials=credentials)
