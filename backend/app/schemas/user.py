@@ -1,6 +1,6 @@
 """User schemas"""
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -8,24 +8,21 @@ import re
 
 
 class UserBase(BaseModel):
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    email: EmailStr
     username: Optional[str] = None
+    is_active: Optional[bool] = True
 
 
 class UserCreate(UserBase):
-    email: str
-    password: str
+    password: str = Field(..., min_length=8, description="密码至少8位")
 
-    # ✅ 新增：密码复杂度验证
+    # ✅ 严格修复：强制密码复杂度 (数字+大写字母+8位以上)
     @field_validator('password')
     @classmethod
-    def validate_password(cls, v):
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        if not re.search(r"\d", v):
-            raise ValueError('Password must contain at least one digit')
-        if not re.search(r"[A-Z]", v):
+    def validate_password_complexity(cls, v):
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one number')
+        if not re.search(r'[A-Z]', v):
             raise ValueError('Password must contain at least one uppercase letter')
         return v
 

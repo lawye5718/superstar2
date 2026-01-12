@@ -15,6 +15,7 @@ from app.models.database import User
 from app.schemas.user import UserCreate, UserResponse
 from app.core.file_validator import validate_uploaded_file # ✅ 导入校验器
 from app.core.image_processor import image_processor_manager
+from app.services.user_service import UserService # ✅ 引入服务层
 
 router = APIRouter()
 
@@ -25,25 +26,10 @@ def create_user(
     db: Session = Depends(get_sync_db)
 ) -> Any:
     """
-    Create new user.
+    Create new user with strict validation.
     """
-    user = db.query(User).filter(User.email == user_in.email).first()
-    if user:
-        raise HTTPException(status_code=400, detail="The user with this email already exists in the system.")
-    
-    user = User(
-        email=user_in.email,
-        password_hash=get_password_hash(user_in.password),
-        username=user_in.username or user_in.email.split("@")[0],
-        credits=100.0,  # 注册赠送 100 积分
-        is_active=True,
-        roles=["user"],
-        is_superuser=False
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    service = UserService(db)
+    return service.create_user(user_in)
 
 @router.get("/me", response_model=UserResponse)
 def read_user_me(
@@ -63,20 +49,10 @@ def top_up_balance(
     current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
-    Add balance to user account (Mock Payment).
+    Mock Top-up API.
     """
-    user = db.query(User).filter(User.id == current_user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="Top-up amount must be positive")
-
-    current_balance = float(user.credits or 0)
-    user.credits = current_balance + amount
-    db.commit()
-    db.refresh(user)
-    return user
+    service = UserService(db)
+    return service.top_up_balance(current_user_id, amount)
 
 @router.post("/face", response_model=dict)
 async def upload_face(
@@ -86,32 +62,30 @@ async def upload_face(
     gender: str = Form(...),
     current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
-    # 1. 读取文件内容
+    """
+    Upload user face image to COS.
+    """
+    # 1. 异步读取文件 (IO Bound)
     content = await file.read()
     
+    # 2. 校验文件 (CPU Bound)
     try:
-        # ✅ 修复：进行完整的文件安全验证
-        file_extension = validate_uploaded_file(file.filename or "", content)
+        validate_uploaded_file(file.filename or "", content)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
+    # 3. 上传到 COS (Network IO Bound)
     try:
-        # 使用腾讯云COS上传图片
         result = await image_processor_manager.upload_example_image(content, file.filename)
-        
         if not result["success"]:
             raise HTTPException(status_code=500, detail=result.get("error", "Upload failed"))
         
-        # 获取COS上的图片URL
         file_url = result["url"]
         
-        user = db.query(User).filter(User.id == current_user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-            
-        user.face_image_url = file_url
-        user.gender = gender
-        db.commit()
+        # 4. 更新数据库 (Sync IO)
+        # ✅ 使用 Service 更新，保持事务一致性
+        service = UserService(db)
+        service.update_face_info(current_user_id, file_url, gender)
         
         return {"status": "success", "url": file_url, "cos_key": result.get("cos_key")}
         

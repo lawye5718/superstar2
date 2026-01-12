@@ -16,3 +16,5 @@ psycopg2-binary==2.9.9
 httpx==0.25.1
 # --- 图片处理和云存储组件 ---
 cos-python-sdk-v5==1.9.23
+# --- 速率限制组件 ---
+slowapi==0.1.9
