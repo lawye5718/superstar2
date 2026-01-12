@@ -25,8 +25,8 @@ def init_db(db: Session) -> None:
         user = User(
             email=admin_email,
             username="SuperAdmin",
-            hashed_password=get_password_hash("admin123"),
-            balance=999999.0,
+            password_hash=get_password_hash("admin123"),
+            credits=999999.0,
             is_active=True,
             is_superuser=True,
         )

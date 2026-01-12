@@ -9,9 +9,7 @@ import uuid
 from enum import Enum as PyEnum
 
 from app.core.database import Base
-from app.core.config import get_settings
-
-settings = get_settings()
+from app.core.config import settings
 
 # Use JSONB for PostgreSQL, JSON for SQLite
 def get_json_type():

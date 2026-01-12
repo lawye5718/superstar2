@@ -4,6 +4,10 @@ from app.models.database import User, Template, Order, OrderStatusEnum
 from app.core.config import settings
 from fastapi import HTTPException
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class OrderService:
     def __init__(self, db: Session):
@@ -17,17 +21,20 @@ class OrderService:
                 # ✅ 关键修复：使用 with_for_update() 锁定用户行，防止并发扣款
                 user = self.db.query(User).filter(User.id == user_id).with_for_update().first()
                 if not user:
+                    logger.error(f"User not found: {user_id}")
                     raise HTTPException(404, "User not found")
                 
                 template = self.db.query(Template).filter(Template.id == template_id).first()
                 if not template:
+                    logger.error(f"Template not found: {template_id}")
                     raise HTTPException(404, "Template not found")
 
                 # 计算价格
-                price = float(template.price) if hasattr(template, 'price') and template.price else settings.DEFAULT_TEMPLATE_PRICE
+                price = float(template.price) if hasattr(template, 'price') and template.price else 9.9
                 
                 # 检查余额
                 if user.credits < price:
+                    logger.warning(f"Insufficient balance for user {user_id}: {user.credits} < {price}")
                     raise HTTPException(400, "Insufficient balance")
 
                 # 执行扣款
@@ -41,18 +48,20 @@ class OrderService:
                     amount=price,
                     credits_consumed=price,
                     credits_purchased=0,
-                    status=OrderStatusEnum.COMPLETED, # 或 PENDING，视业务而定
+                    status=OrderStatusEnum.COMPLETED,
                     platform="web",
-                    result_image_url=template.display_image_urls[0] if template.display_image_urls else settings.DEFAULT_RESULT_IMAGE_PLACEHOLDER
+                    result_image_url=template.display_image_urls[0] if template.display_image_urls else None
                 )
                 self.db.add(order)
                 
                 # 更新模板统计
                 template.usage_count = (template.usage_count or 0) + 1
                 
+                logger.info(f"Order created successfully: {order.id} for user {user_id}")
                 return order
                 # with 块结束时自动 commit，失败自动 rollback
         except HTTPException:
             raise
         except Exception as e:
+            logger.error(f"Order transaction failed: {str(e)}", exc_info=True)
             raise HTTPException(500, f"Order transaction failed: {str(e)}")
