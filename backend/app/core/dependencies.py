@@ -58,19 +58,18 @@ def get_current_user(db: Session = Depends(get_sync_db)):
     """
     user_id = get_current_user_id()
     user = db.query(User).filter(User.id == user_id).first()
+    
+    # 🛑【严重修复】：删除了此处自动创建用户的代码
+    # 原有的自动创建逻辑会导致任意伪造的 token 都能注册并在系统中扣款，极度危险。
+    
     if not user:
-        # 自动注册一个测试用户 (方便 MVP 演示)
-        user = User(
-            id=user_id,
-            email="demo@example.com",
-            password_hash=get_password_hash("default_password"),
-            credits=100,
-            roles=["user"],
-            username="demo",
-            is_superuser=False,
-            is_active=True
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+        
     return user

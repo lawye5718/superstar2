@@ -7,6 +7,7 @@ from app.core.dependencies import get_current_user_id
 from app.core.config import settings
 from app.models.database import Order, OrderStatusEnum, User, Template
 from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
+from app.services.order_service import OrderService # ✅ 导入服务
 router = APIRouter()
 
 
@@ -17,48 +18,11 @@ def create_order(
     current_user_id: str = Depends(get_current_user_id),
 ) -> Any:
     """
-    Create a new order.
+    Create a new order (Transactional).
     """
-    # 验证模板是否存在
-    template = db.query(Template).filter(Template.id == order_in.template_id).first()
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    
-    # 验证用户是否存在
-    user = db.query(User).filter(User.id == current_user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    template_price = float(template.price) if hasattr(template, 'price') and template.price else settings.DEFAULT_TEMPLATE_PRICE
-    current_balance = float(user.credits or 0)
-
-    if current_balance < template_price:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
-
-    # 扣减余额并创建订单
-    user.credits = current_balance - template_price
-
-    order_id = str(uuid.uuid4())
-    order = Order(
-        id=order_id,
-        user_id=current_user_id,
-        template_id=order_in.template_id,
-        status=OrderStatusEnum.COMPLETED,
-        amount=template_price,
-        credits_consumed=template_price,
-        credits_purchased=0,
-        platform="web",
-        result_image_url=template.display_image_urls[0] if template.display_image_urls else settings.DEFAULT_RESULT_IMAGE_PLACEHOLDER
-    )
-
-    # 更新模板使用次数
-    template.usage_count = (template.usage_count or 0) + 1
-
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    db.refresh(user)
-    db.refresh(template)
+    service = OrderService(db)
+    # ✅ 修复：使用事务服务创建订单
+    order = service.create_order_with_transaction(current_user_id, order_in.template_id)
 
     return OrderResponse(
         id=str(order.id),
