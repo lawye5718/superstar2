@@ -1,0 +1,30 @@
+网页过滤摘要
+==================================================
+
+所有页面统计:
+1. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_1.html
+   字符数: 3861, 汉字数: 38, 状态: 保留
+
+2. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_2.html
+   字符数: 4006, 汉字数: 36, 状态: 保留
+
+3. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_3.html
+   字符数: 3946, 汉字数: 45, 状态: 保留
+
+4. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_4.html
+   字符数: 3929, 汉字数: 46, 状态: 保留
+
+5. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_5.html
+   字符数: 4076, 汉字数: 55, 状态: 保留
+
+6. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_6.html
+   字符数: 2989, 汉字数: 48, 状态: 保留
+
+
+有效页面 (6 个):
+1. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_1.html (字符数: 3861)
+2. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_2.html (字符数: 4006)
+3. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_3.html (字符数: 3946)
+4. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_4.html (字符数: 3929)
+5. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_5.html (字符数: 4076)
+6. http://www.xn--3mq943byne27j.com/vip_doc/23078845_0_0_6.html (字符数: 2989)

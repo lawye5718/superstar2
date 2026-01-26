@@ -9,9 +9,7 @@ import uuid
 from enum import Enum as PyEnum
 
 from app.core.database import Base
-from app.core.config import get_settings
-
-settings = get_settings()
+from app.core.config import settings
 
 # Use JSONB for PostgreSQL, JSON for SQLite
 def get_json_type():
@@ -65,7 +63,9 @@ class TaskStatusEnum(PyEnum):
 class OrderStatusEnum(PyEnum):
     """Order status enum"""
     PENDING = "PENDING"
-    PAID = "PAID"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     REFUNDED = "REFUNDED"
 
@@ -86,6 +86,9 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=True, index=True)
     phone = Column(String(20), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=True)
+    username = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
     
     # Third-party authentication
     wx_unionid = Column(String(100), unique=True, nullable=True, index=True)
@@ -93,7 +96,7 @@ class User(Base):
     apple_id = Column(String(100), unique=True, nullable=True, index=True)
     
     # Credits (wallet)
-    credits = Column(Integer, default=0, nullable=False)
+    credits = Column(Numeric(10, 2), default=0, nullable=False)
     
     # User profile
     face_image_url = Column(String(500), nullable=True)  # User uploaded face image
@@ -110,6 +113,11 @@ class User(Base):
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
     generation_tasks = relationship("GenerationTask", back_populates="user", cascade="all, delete-orphan")
     favorites = relationship("TemplateFavorite", back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def balance(self):
+        """Alias for credits to keep API naming consistent"""
+        return float(self.credits or 0)
 
 
 class Template(Base):
@@ -253,7 +261,7 @@ class Order(Base):
     package_id = Column(get_uuid_type(as_uuid=False), ForeignKey("packages.id"), nullable=True)
     template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=True)  # 添加模板ID
     credits_purchased = Column(Integer, nullable=False)  # Credits added to user account
-    credits_consumed = Column(Integer, default=0, nullable=False)  # 消耗积分
+    credits_consumed = Column(Numeric(10, 2), default=0, nullable=False)  # 消耗积分
     
     amount = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(OrderStatusEnum), default=OrderStatusEnum.PENDING, nullable=False, index=True)

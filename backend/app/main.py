@@ -123,8 +123,29 @@ else:
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "version": settings.APP_VERSION}
+    """
+    Health check endpoint for monitoring and load balancers.
+    Returns 200 if service is healthy.
+    """
+    try:
+        # Test database connectivity
+        from app.core.database import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        
+        return {
+            "status": "healthy",
+            "version": "2.1.0",
+            "service": "Superstar AI"
+        }
+    except Exception as e:
+        # Note: 'logger' is not imported in this file, so we won't use it
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":

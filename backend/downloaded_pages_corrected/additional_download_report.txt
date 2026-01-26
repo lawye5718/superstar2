@@ -1,0 +1,14 @@
+新增网页下载报告
+==================================================
+
+目标网页数: 4
+成功下载数: 4
+失败下载数: 0
+
+成功下载的网页:
+------------------------------
+downloaded_pages_corrected/m_thepaper_cn_baijiahao_4396501.html - https://m.thepaper.cn/baijiahao_4396501 (字符数: 5149, 汉字数: 4424)
+downloaded_pages_corrected/xy_zjnu_edu_cn_jjh_zjnu_jjh_cnt__id_660cc72e-f662-4228-b6f5-b13a8e49ba2b.html - https://xy.zjnu.edu.cn/jjh/zjnu_jjh/cnt/?id=660cc72e-f662-4228-b6f5-b13a8e49ba2b (字符数: 397, 汉字数: 279)
+downloaded_pages_corrected/m_21jingji_com_article_20140924_3823338d90ae2688710bbbd76dd193e2_html.html - https://m.21jingji.com/article/20140924/3823338d90ae2688710bbbd76dd193e2.html (字符数: 2924, 汉字数: 2507)
+downloaded_pages_corrected/e_mzyfz_org_cn_mag_paper_25016_13454_html.html - http://e.mzyfz.org.cn/mag/paper_25016_13454.html (字符数: 4674, 汉字数: 3935)
+
