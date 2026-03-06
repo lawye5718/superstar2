@@ -49,12 +49,17 @@ Base = declarative_base()
 
 # Dependency for FastAPI
 async def get_db() -> AsyncSession:
-    """Get database session as FastAPI dependency"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    """Get database session as FastAPI dependency.
+    Rolls back automatically on exception and always closes the session."""
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 def get_sync_db() -> Session:

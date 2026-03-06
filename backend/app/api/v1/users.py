@@ -1,6 +1,9 @@
 """User API routes"""
 
+import re
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Body
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from typing import Any
 import os
@@ -15,17 +18,26 @@ from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.api.v1.helpers import normalize_balance_payload
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+_EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
 
 
 # --- 注册接口 ---
 @router.post("/", response_model=UserResponse)
+@limiter.limit("5/minute")
 def create_user(
+    request: Request,
     user_in: UserCreate,
     db: Session = Depends(get_sync_db)
 ) -> Any:
     """
-    Create new user.
+    Create new user (rate-limited to 5 registrations per minute per IP).
     """
+    if not _EMAIL_REGEX.match(user_in.email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
     user = db.query(User).filter(User.email == user_in.email).first()
     if user:
         raise HTTPException(status_code=400, detail="The user with this email already exists in the system.")
@@ -118,18 +130,22 @@ async def upload_face(
     """
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
+    # Read all content and check size before saving
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
     upload_dir = "static/uploads"
     os.makedirs(upload_dir, exist_ok=True)
     
     file_extension = os.path.splitext(file.filename)[1]
     new_filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(upload_dir, new_filename)
-    
+
     try:
         async with aiofiles.open(file_path, 'wb') as out_file:
-            while content := await file.read(1024 * 1024):
-                await out_file.write(content)
+            await out_file.write(file_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File save failed: {str(e)}")
         
@@ -145,3 +161,22 @@ async def upload_face(
     db.commit()
     
     return {"status": "success", "url": file_url}
+
+
+@router.delete("/me")
+def delete_user_me(
+    db: Session = Depends(get_sync_db),
+    current_user_id: str = Depends(get_current_user_id)
+) -> Any:
+    """
+    Soft-delete the current user's account (GDPR compliance).
+    Marks the account inactive and anonymises the email address.
+    """
+    from app.middleware.audit import log_action
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if user:
+        user.is_active = False
+        user.email = f"deleted_{user.id}@deleted.local"
+        log_action(db, "user.delete", actor_user_id=current_user_id, details={"user_id": current_user_id})
+        db.commit()
+    return {"status": "success"}

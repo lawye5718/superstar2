@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from typing import Any, List
+from typing import Any, List, Optional
 import uuid
 from app.core.database import get_sync_db
 from app.core.dependencies import get_current_user_id
@@ -56,8 +56,8 @@ def create_order(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    # 验证用户是否存在
-    user = db.query(User).filter(User.id == current_user_id).first()
+    # 使用行级锁加载用户，防止并发超扣
+    user = db.query(User).filter(User.id == current_user_id).with_for_update().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -107,12 +107,16 @@ def create_order(
 @router.post("/tasks/callback")
 def task_callback(
     callback: TaskCallbackRequest,
+    x_api_key: Optional[str] = Header(None),
     db: Session = Depends(get_sync_db),
 ) -> Any:
     """Webhook callback to update task and order status.
 
-    NOTE: In production, secure this endpoint with API key or HMAC verification.
+    Secured with API key authentication via X-Api-Key header.
+    Set the CALLBACK_API_KEY environment variable to enable verification.
     """
+    if settings.CALLBACK_API_KEY and x_api_key != settings.CALLBACK_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
     task = db.query(GenerationTask).filter(GenerationTask.id == callback.task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

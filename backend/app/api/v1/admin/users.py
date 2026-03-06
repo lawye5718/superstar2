@@ -6,6 +6,7 @@ from app.api.v1.admin.stats import _require_admin
 from app.api.v1.helpers import normalize_balance_payload
 from app.core.database import get_sync_db
 from app.core.dependencies import get_current_user_id
+from app.middleware.audit import log_action
 from app.models.database import User
 from app.schemas.user import UserUpdate, UserResponse
 
@@ -37,6 +38,12 @@ def update_user_by_admin(
         if hasattr(user, field) and field not in ("balance",):
             setattr(user, field, value)
 
+    log_action(
+        db,
+        "admin.user_update",
+        actor_user_id=current_user_id,
+        details={"target_user_id": user_id, "changes": update_data},
+    )
     db.commit()
     db.refresh(user)
     return user
