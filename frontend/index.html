@@ -29,6 +29,7 @@
         <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
+            <button @click="currentView = 'favorites'; loadFavorites()" :class="{'text-yellow-500': currentView === 'favorites'}">❤️ 我的收藏</button>
             <button @click="showUserModal = true" class="hover:text-yellow-200 font-bold">👤 {{ user.username || user.email }} (¥{{ user.credits }})</button>
             <!-- 仅管理员可见 -->
             <button v-if="user.is_superuser" @click="openAdmin" :class="{'text-red-400': currentView === 'admin'}" class="text-xs border border-stone-600 px-2 py-1 rounded hover:border-red-400 hover:text-red-400 ml-2 transition">
@@ -88,13 +89,43 @@
                 </div>
             </div>
             <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
-                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all" @click="createOrder(tpl)">
-                    <img :src="tpl.cover_image_url" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all">
+                    <img :src="tpl.cover_image_url" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
+                    <button @click.stop="toggleFavorite(tpl)" class="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white transition shadow" :title="tpl.is_favorited ? '取消收藏' : '收藏'">
+                        <span :class="tpl.is_favorited ? 'text-red-500' : 'text-gray-400'" class="text-lg">{{ tpl.is_favorited ? '❤️' : '🤍' }}</span>
+                    </button>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 pointer-events-none">
                         <h3 class="text-white font-bold text-lg">{{ tpl.title }}</h3>
                         <div class="flex justify-between items-center mt-2">
                             <span class="text-yellow-400 text-xs">🔥 {{ tpl.usage_count || 0 }}</span>
                             <span class="bg-white text-black text-xs px-2 py-1 rounded font-bold">¥{{ tpl.price }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.5 我的收藏视图 -->
+        <div v-else-if="currentView === 'favorites'" class="h-full overflow-y-auto bg-stone-50 p-4">
+            <div class="max-w-6xl mx-auto py-4">
+                <h2 class="text-2xl font-bold mb-6">❤️ 我的收藏</h2>
+                <div v-if="favoriteTemplates.length === 0" class="text-center py-20 text-gray-400">
+                    <div class="text-6xl mb-4">💔</div>
+                    <p>还没有收藏任何模板</p>
+                    <button @click="currentView = 'gallery'" class="mt-4 px-6 py-2 bg-stone-900 text-white rounded-full">去画廊逛逛</button>
+                </div>
+                <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div v-for="tpl in favoriteTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all">
+                        <img :src="tpl.cover_image_url" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
+                        <button @click.stop="toggleFavorite(tpl); loadFavorites()" class="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white transition shadow">
+                            <span class="text-red-500 text-lg">❤️</span>
+                        </button>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 pointer-events-none">
+                            <h3 class="text-white font-bold text-lg">{{ tpl.title }}</h3>
+                            <div class="flex justify-between items-center mt-2">
+                                <span class="text-yellow-400 text-xs">🔥 {{ tpl.usage_count || 0 }}</span>
+                                <span class="bg-white text-black text-xs px-2 py-1 rounded font-bold">¥{{ tpl.price }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -129,6 +160,18 @@
                                 <p class="text-2xl font-bold">{{ adminStats?.total_templates ?? '-' }}</p>
                             </div>
                         </div>
+                        <!-- 热销产品排行 -->
+                        <div v-if="adminStats?.top_templates?.length" class="mt-6">
+                            <h3 class="text-lg font-bold mb-3">🔥 热销产品排行</h3>
+                            <div class="space-y-2">
+                                <div v-for="(t, idx) in adminStats.top_templates" :key="t.id" class="flex items-center gap-3 p-2 rounded-lg" :class="idx < 3 ? 'bg-yellow-50' : 'bg-gray-50'">
+                                    <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold" :class="idx === 0 ? 'bg-yellow-500 text-white' : idx === 1 ? 'bg-gray-400 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600'">{{ idx + 1 }}</span>
+                                    <span class="flex-1 text-sm font-medium truncate">{{ t.title }}</span>
+                                    <span class="text-xs text-gray-500">{{ t.usage_count }} 次</span>
+                                    <span class="text-xs font-bold text-yellow-600">¥{{ t.price }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow">
@@ -160,6 +203,43 @@
                                     </tr>
                                     <tr v-if="!adminUsers.length">
                                         <td colspan="4" class="py-4 text-center text-gray-400">暂无用户数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 管理已有模板 -->
+                    <div class="bg-white p-6 rounded-xl shadow">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold">📋 管理已有模板</h2>
+                            <button @click="loadAdminTemplates" class="text-sm text-blue-600 hover:underline">刷新</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead>
+                                    <tr class="text-left text-gray-500 border-b">
+                                        <th class="py-2 pr-4">标题</th>
+                                        <th class="py-2 pr-4">价格</th>
+                                        <th class="py-2 pr-4">使用次数</th>
+                                        <th class="py-2 pr-4">状态</th>
+                                        <th class="py-2">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="tpl in adminTemplates" :key="tpl.id" class="border-b">
+                                        <td class="py-2 pr-4">{{ tpl.title }}</td>
+                                        <td class="py-2 pr-4">¥{{ tpl.price }}</td>
+                                        <td class="py-2 pr-4">{{ tpl.usage_count }}</td>
+                                        <td class="py-2 pr-4">
+                                            <span :class="tpl.is_approved ? 'text-green-600' : 'text-red-500'" class="text-xs font-bold">{{ tpl.is_approved ? '已上架' : '未上架' }}</span>
+                                        </td>
+                                        <td class="py-2">
+                                            <button @click="openEditTemplate(tpl)" class="px-3 py-1 bg-blue-600 text-white rounded text-xs">编辑</button>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!adminTemplates.length">
+                                        <td colspan="5" class="py-4 text-center text-gray-400">暂无模板数据</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -201,6 +281,7 @@
                 <div class="animate-spin text-6xl mb-4">⏳</div>
                 <h3 class="text-2xl mb-2">AI 正在绘制...</h3>
                 <p class="text-gray-400">预计等待 30 秒</p>
+                <p v-if="processingOrder.task_id" class="text-gray-500 text-xs mt-2">任务ID: {{ processingOrder.task_id }}</p>
             </div>
             <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
                 <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 完成!</h3>
@@ -284,6 +365,54 @@
         </div>
     </div>
 
+    <!-- 编辑模板模态框 -->
+    <div v-if="showEditTemplateModal" class="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center" @click.self="showEditTemplateModal = false">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">编辑模板</h3>
+                <button @click="showEditTemplateModal = false" class="text-gray-400 hover:text-black">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold mb-1">封面图</label>
+                    <input type="file" @change="handleEditTemplateFileUpload" class="w-full border p-2 rounded">
+                    <div v-if="editTemplate.cover_image_url" class="mt-2 w-32 h-40 bg-gray-100 rounded overflow-hidden">
+                        <img :src="editTemplate.cover_image_url" class="w-full h-full object-cover">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">标题</label>
+                    <input v-model="editTemplate.title" type="text" class="w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">分类</label>
+                    <select v-model="editTemplate.category" class="w-full border p-2 rounded">
+                        <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">价格</label>
+                    <input v-model.number="editTemplate.price" type="number" class="w-full border p-2 rounded">
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg border">
+                    <h3 class="font-bold text-gray-700 mb-2">Prompt 配置</h3>
+                    <textarea v-model="editTemplate.prompt_config.base_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Base Prompt" rows="3"></textarea>
+                    <textarea v-model="editTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm" placeholder="Variable Prompt" rows="3"></textarea>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-bold">上架状态:</label>
+                    <button @click="editTemplate.is_approved = !editTemplate.is_approved" :class="editTemplate.is_approved ? 'bg-green-500' : 'bg-gray-300'" class="relative w-12 h-6 rounded-full transition-colors">
+                        <span :class="editTemplate.is_approved ? 'translate-x-6' : 'translate-x-0'" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+                    </button>
+                    <span class="text-sm">{{ editTemplate.is_approved ? '已上架' : '未上架' }}</span>
+                </div>
+                <button @click="submitEditTemplate" :disabled="isEditSubmitting" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition">
+                    {{ isEditSubmitting ? '保存中...' : '💾 保存修改' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -323,6 +452,19 @@
             const newTemplate = reactive({
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
                 prompt_config: { base_prompt: 'High quality, 8k', variable_prompt: '', negative_prompt: 'nsfw, low quality' }
+            });
+
+            // Favorites State
+            const favoriteTemplates = ref([]);
+
+            // Admin Template Management State
+            const adminTemplates = ref([]);
+            const showEditTemplateModal = ref(false);
+            const isEditSubmitting = ref(false);
+            const editTemplate = reactive({
+                id: '', title: '', category: '', price: 9.9, cover_image_url: '',
+                is_approved: true,
+                prompt_config: { base_prompt: '', variable_prompt: '' }
             });
 
             // Axios Interceptor for Token
@@ -404,7 +546,8 @@
                 try {
                     const res = await axios.get(`${API_BASE}/templates/random`);
                     currentCameraPhoto.value = null;
-                    setTimeout(() => { currentCameraPhoto.value = res.data; isLoading.value = false; }, 300);
+                    const tpl = {...res.data, cover_image_url: res.data.display_image_urls?.[0] || ''};
+                    setTimeout(() => { currentCameraPhoto.value = tpl; isLoading.value = false; }, 300);
                 } catch(e) { alert("暂无模版"); isLoading.value = false; }
             };
 
@@ -478,6 +621,7 @@
                     newTemplate.title = '';
                     newTemplate.cover_image_url = '';
                     loadGallery();
+                    loadAdminTemplates();
                 } catch(e) { alert("上架失败: " + e.message); } 
                 finally { isAdminSubmitting.value = false; }
             };
@@ -504,6 +648,7 @@
             const openAdmin = () => {
                 currentView.value = 'admin';
                 loadAdminData();
+                loadAdminTemplates();
             };
 
             const updateUserBalance = async (u) => {
@@ -529,10 +674,77 @@
                 const url = cat && cat!=='全部' ? `${API_BASE}/templates/?category=${cat}` : `${API_BASE}/templates/`;
                 try {
                     const res = await axios.get(url);
-                    galleryTemplates.value = res.data;
+                    galleryTemplates.value = res.data.map(t => ({...t, cover_image_url: t.display_image_urls?.[0] || ''}));
                 } catch(e) { console.error("Gallery load failed", e); }
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
+
+            // --- Favorites Logic ---
+            const toggleFavorite = async (tpl) => {
+                try {
+                    const res = await axios.post(`${API_BASE}/favorites/${tpl.id}/favorite`);
+                    tpl.is_favorited = res.data.is_favorited;
+                } catch(e) { alert("收藏操作失败"); }
+            };
+
+            const loadFavorites = async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/favorites/`);
+                    favoriteTemplates.value = res.data.map(t => ({...t, cover_image_url: t.display_image_urls?.[0] || ''}));
+                } catch(e) { console.error("Favorites load failed", e); }
+            };
+
+            // --- Admin Template Management ---
+            const loadAdminTemplates = async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/admin/templates/`);
+                    adminTemplates.value = res.data;
+                } catch(e) { console.error("Admin templates load failed", e); }
+            };
+
+            const openEditTemplate = (tpl) => {
+                editTemplate.id = tpl.id;
+                editTemplate.title = tpl.title;
+                editTemplate.category = (tpl.tags && tpl.tags[0]) || '复古';
+                editTemplate.price = tpl.price;
+                editTemplate.cover_image_url = (tpl.display_image_urls && tpl.display_image_urls[0]) || '';
+                editTemplate.is_approved = tpl.is_approved;
+                editTemplate.prompt_config = {
+                    base_prompt: tpl.config?.base_prompt || '',
+                    variable_prompt: tpl.config?.variable_prompt || ''
+                };
+                showEditTemplateModal.value = true;
+            };
+
+            const handleEditTemplateFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await axios.post(`${API_BASE}/utils/upload`, fd);
+                    editTemplate.cover_image_url = res.data.url;
+                } catch(e) { alert("图片上传失败"); }
+            };
+
+            const submitEditTemplate = async () => {
+                isEditSubmitting.value = true;
+                try {
+                    await axios.put(`${API_BASE}/admin/templates/${editTemplate.id}`, {
+                        title: editTemplate.title,
+                        category: editTemplate.category,
+                        cover_image_url: editTemplate.cover_image_url,
+                        prompt_config: editTemplate.prompt_config,
+                        price: editTemplate.price,
+                        is_approved: editTemplate.is_approved
+                    });
+                    alert("✅ 模板已更新！");
+                    showEditTemplateModal.value = false;
+                    loadAdminTemplates();
+                    loadGallery();
+                } catch(e) { alert("更新失败: " + (e.response?.data?.detail || e.message)); }
+                finally { isEditSubmitting.value = false; }
+            };
 
             onMounted(init);
 
@@ -541,9 +753,12 @@
                 currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
                 isLoading, isUploading, tempGender, categories, activeCategory,
                 newTemplate, isAdminSubmitting, adminStats, adminUsers, adminUserEdits, adminPagination, adminLoading,
+                favoriteTemplates, adminTemplates, showEditTemplateModal, isEditSubmitting, editTemplate,
                 handleAuth, logout, topUp, openAdmin, loadAdminData,
                 triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
-                handleAdminFileUpload, submitNewTemplate, updateUserBalance, grantBonus
+                handleAdminFileUpload, submitNewTemplate, updateUserBalance, grantBonus,
+                toggleFavorite, loadFavorites, loadAdminTemplates, openEditTemplate,
+                handleEditTemplateFileUpload, submitEditTemplate
             };
         }
     }).mount('#app');
