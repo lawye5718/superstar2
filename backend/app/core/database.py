@@ -57,6 +57,15 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
+def get_sync_db() -> Session:
+    """Get synchronous database session as dependency"""
+    db = SyncSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 async def init_db():
     """Initialize database connection and create tables"""
     try:

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import Generator
 import uuid
 
-from .database import get_db
+from .database import get_db, get_sync_db
 from app.models.database import User
 from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
@@ -40,7 +40,7 @@ def verify_token(token: str):
         if user_id is None:
             raise HTTPException(status_code=401, detail="Could not validate credentials")
         return user_id
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 
@@ -52,7 +52,7 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Security(sec
     return verify_token(token)
 
 
-def get_current_user(db: Session = Depends(get_db)):
+def get_current_user(db: Session = Depends(get_sync_db)):
     """
     获取当前用户
     """
@@ -65,9 +65,25 @@ def get_current_user(db: Session = Depends(get_db)):
             email="demo@example.com",
             password_hash=get_password_hash("default_password"),
             credits=100,
-            roles=["user"]
+            roles=["user"],
+            username="demo",
+            is_superuser=False,
+            is_active=True
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    return user
+
+
+def get_current_active_superuser(
+    db: Session = Depends(get_sync_db),
+    current_user_id: str = Depends(get_current_user_id),
+) -> User:
+    """Get current user and verify they are a superuser."""
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not getattr(user, "is_superuser", False):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     return user
