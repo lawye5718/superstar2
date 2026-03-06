@@ -31,7 +31,7 @@ def init_db_data():
                 id="test-user-uuid-001",
                 email="demo@example.com",
                 password_hash=get_password_hash("default_password"),
-                credits=100,
+                balance=100,
                 roles=["user"]
             )
             db.add(demo_user)

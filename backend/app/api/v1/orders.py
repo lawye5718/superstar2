@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+
 from typing import Any
 import uuid
 from datetime import datetime
 from app.core.database import SyncSessionLocal
-from app.core.dependencies import get_current_user_id
+from app.core.dependencies import get_current_user_id, get_db
 from app.core.config import settings
 from app.models.database import Order, User, Template
 from app.schemas.order import OrderCreate, OrderResponse, OrderUpdate
@@ -34,6 +34,16 @@ def create_order(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        template_price = float(template.price) if hasattr(template, 'price') and template.price else settings.DEFAULT_TEMPLATE_PRICE
+        
+        # 检查余额
+        if user.balance < template_price:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        # 扣费
+        user.balance -= template_price
+        db.add(user)
+        
         # 创建订单
         order_id = str(uuid.uuid4())
         template_price = float(template.price) if hasattr(template, 'price') and template.price else settings.DEFAULT_TEMPLATE_PRICE
@@ -44,7 +54,7 @@ def create_order(
             template_id=order_in.template_id,
             status="PENDING",  # 订单状态
             amount=template_price,  # 使用模板价格
-            credits_consumed=template_price,  # 消耗积分
+            balance_consumed=template_price,  # 消耗积分
             credits_purchased=0,  # 积分套餐订单才有这个值
             platform="web"  # 默认平台
         )
@@ -60,7 +70,7 @@ def create_order(
             template_id=str(order.template_id) if order.template_id else None,
             status=order.status.value if hasattr(order.status, 'value') else str(order.status),
             amount=float(order.amount),
-            credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
+            balance_consumed=float(order.balance_consumed) if order.balance_consumed else None,
             created_at=order.created_at,
             updated_at=order.updated_at
         )
@@ -69,6 +79,43 @@ def create_order(
         raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
     finally:
         db.close()
+
+
+@router.get("/", response_model=list[OrderResponse])
+def read_orders(
+    skip: int = 0,
+    limit: int = 100,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+) -> Any:
+    """
+    Retrieve own orders.
+    """
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.is_superuser:
+        # 管理员可以看到所有订单 (可选逻辑)
+        orders = db.query(Order).offset(skip).limit(limit).all()
+    else:
+        # 普通用户只能看自己的
+        orders = db.query(Order).filter(Order.user_id == current_user_id).offset(skip).limit(limit).all()
+    
+    return [
+        OrderResponse(
+            id=str(order.id),
+            user_id=str(order.user_id),
+            template_id=str(order.template_id) if order.template_id else None,
+            status=order.status.value if hasattr(order.status, 'value') else str(order.status),
+            amount=float(order.amount),
+            balance_consumed=float(order.balance_consumed) if order.balance_consumed else None,
+            result_image_url=getattr(order, 'result_image_url', None),
+            created_at=order.created_at,
+            updated_at=order.updated_at
+        )
+        for order in orders
+    ]
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -90,16 +137,13 @@ def get_order(
         if str(order.user_id) != str(current_user_id):
             raise HTTPException(status_code=403, detail="Not authorized to view this order")
         
-        # 获取关联的模板信息
-        template = db.query(Template).filter(Template.id == order.template_id).first()
-        
         return OrderResponse(
             id=str(order.id),
             user_id=str(order.user_id),
             template_id=str(order.template_id) if order.template_id else None,
             status=order.status.value if hasattr(order.status, 'value') else str(order.status),
             amount=float(order.amount),
-            credits_consumed=float(order.credits_consumed) if order.credits_consumed else None,
+            balance_consumed=float(order.balance_consumed) if order.balance_consumed else None,
             result_image_url=getattr(order, 'result_image_url', None),  # 返回实际URL或None
             created_at=order.created_at,
             updated_at=order.updated_at

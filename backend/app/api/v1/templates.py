@@ -51,8 +51,9 @@ def get_templates(
         query = db.query(Template).filter(Template.is_approved == True)
         
         if category and category != '全部':
-            # 简单的分类过滤，实际实现可能需要更复杂的逻辑
-            pass  # 这里可以添加分类过滤逻辑
+            # 根据tags字段过滤分类，使用LIKE查询JSON数组
+            from sqlalchemy import text
+            query = query.filter(text("tags LIKE :category_pattern").params(category_pattern=f'%{category}%'))
         
         templates = query.offset(skip).limit(limit).all()
         

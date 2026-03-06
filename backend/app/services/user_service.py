@@ -23,7 +23,7 @@ class UserService:
         db_user = User(
             email=user_in.email,
             password_hash=hashed_password,
-            credits=0,  # Default credits
+            balance=0,  # Default balance
             roles=["user"]  # Default role
         )
         

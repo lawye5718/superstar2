@@ -83,8 +83,8 @@ class User(Base):
     wx_openid = Column(String(100), nullable=True, index=True)
     apple_id = Column(String(100), unique=True, nullable=True, index=True)
     
-    # Credits (wallet)
-    credits = Column(Integer, default=0, nullable=False)
+    # Balance (wallet)
+    balance = Column(Integer, default=0, nullable=False)
     
     # User profile
     face_image_url = Column(String(500), nullable=True)  # User uploaded face image
@@ -92,6 +92,9 @@ class User(Base):
     
     # Roles (array stored as JSON)
     roles = Column(JSON, default=lambda: ["user"], nullable=False)
+    
+    # Superuser status
+    is_superuser = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -243,8 +246,8 @@ class Order(Base):
     user_id = Column(get_uuid_type(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
     package_id = Column(get_uuid_type(as_uuid=False), ForeignKey("packages.id"), nullable=True)
     template_id = Column(get_uuid_type(as_uuid=False), ForeignKey("prompts.id"), nullable=True)  # 添加模板ID
-    credits_purchased = Column(Integer, nullable=False)  # Credits added to user account
-    credits_consumed = Column(Integer, default=0, nullable=False)  # 消耗积分
+    credits_purchased = Column(Integer, nullable=False)  # Amount of credits purchased for package orders
+    balance_consumed = Column(Integer, default=0, nullable=False)  # Balance consumed for template orders
     
     amount = Column(Numeric(10, 2), nullable=False)
     status = Column(SQLEnum(OrderStatusEnum), default=OrderStatusEnum.PENDING, nullable=False, index=True)

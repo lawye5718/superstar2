@@ -11,14 +11,13 @@
     <style>
         .retro-font { font-family: 'Abril Fatface', cursive; }
         .body-font { font-family: 'Lato', sans-serif; }
-        .camera-shutter-anim { animation: flash 0.2s; }
-        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0; background-color: white; } 100% { opacity: 1; } }
-        .photo-print-enter-active { transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .photo-print-enter-from { transform: translateY(-100px) scale(0.8); opacity: 0; }
         .polaroid { background: white; padding: 1rem 1rem 3rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: rotate(-2deg); transition: transform 0.3s; }
         .polaroid:hover { transform: rotate(0deg) scale(1.02); z-index: 10; }
-        /* 进度条动画 */
-        @keyframes progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        /* 滚动条隐藏 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-stone-100 body-font text-stone-800 h-screen overflow-hidden">
@@ -27,176 +26,299 @@
 
     <!-- 导航栏 -->
     <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
-        <div class="text-2xl retro-font text-yellow-500 tracking-wider">SUPERSTAR.AI</div>
-        <div class="space-x-4 text-sm flex items-center">
+        <div class="text-2xl retro-font text-yellow-500 tracking-wider cursor-pointer" @click="currentView='camera'">SUPERSTAR.AI</div>
+        <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
-            <button @click="showUserModal = true" class="hover:text-yellow-200">👤 余额: {{ user.balance }}</button>
-            <!-- 隐蔽的管理员入口 -->
-            <button @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs text-stone-600 hover:text-red-400 ml-2">Ops</button>
+            <button @click="openUserModal('profile')" class="hover:text-yellow-200 font-bold">👤 {{ user.username }} (¥{{ user.balance }})</button>
+            
+            <!-- 管理员入口 -->
+            <button v-if="user.is_superuser" @click="currentView = 'admin'" :class="{'text-red-400': currentView === 'admin'}" class="text-xs border border-stone-600 px-2 py-1 rounded hover:border-red-400 hover:text-red-400 ml-2 transition">
+                ADMIN OPS
+            </button>
+            
+            <button @click="logout" class="text-stone-500 hover:text-white ml-4">✕</button>
+        </div>
+        <div v-else>
+            <button @click="showAuthModal = true" class="bg-yellow-500 text-black px-4 py-1 rounded font-bold hover:bg-yellow-400">立即登录</button>
         </div>
     </nav>
 
     <!-- 主视图区域 -->
     <main class="flex-grow relative overflow-hidden bg-stone-100">
         
+        <!-- 未登录欢迎页 -->
+        <div v-if="!isLoggedIn" class="h-full flex flex-col items-center justify-center bg-stone-800 text-white bg-[url('https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80')] bg-cover bg-center bg-blend-overlay">
+            <div class="backdrop-blur-sm bg-black/30 p-10 rounded-2xl text-center">
+                <h1 class="retro-font text-6xl text-yellow-500 mb-4 drop-shadow-lg">Superstar AI</h1>
+                <p class="text-xl mb-8 font-light">Your Hollywood Moment, One Click Away.</p>
+                <button @click="showAuthModal = true" class="px-8 py-3 bg-yellow-500 text-black rounded-full font-bold text-lg hover:scale-105 transition shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+                    开始制作
+                </button>
+            </div>
+        </div>
+
         <!-- 1. 复古相机视图 -->
-        <div v-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-800 relative">
-            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/leather.png')] opacity-30"></div>
-            <div class="relative z-10 w-full max-w-md h-[60vh] flex items-center justify-center">
-                <transition name="photo-print">
-                    <div v-if="currentCameraPhoto" class="polaroid w-64 md:w-80 cursor-grab active:cursor-grabbing">
+        <div v-else-if="currentView === 'camera'" class="h-full flex flex-col items-center justify-center bg-stone-900 relative">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/leather.png')] opacity-20"></div>
+            
+            <div class="relative z-10 w-full max-w-md h-[55vh] flex items-center justify-center perspective-1000">
+                <transition name="fade">
+                    <div v-if="currentCameraPhoto" class="polaroid w-72 cursor-pointer transition-transform duration-500 hover:rotate-0 rotate-2">
                         <img :src="currentCameraPhoto.cover_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
-                        <div class="text-center mt-4 retro-font text-xl text-gray-700">{{ currentCameraPhoto.title }}</div>
+                        <div class="mt-4 flex justify-between items-end">
+                            <span class="retro-font text-xl text-gray-800">{{ currentCameraPhoto.title }}</span>
+                            <span class="text-xs font-bold text-stone-400 bg-stone-100 px-2 py-1 rounded">¥{{ currentCameraPhoto.price }}</span>
+                        </div>
                     </div>
-                    <div v-else class="text-white text-opacity-50 text-center">
-                        <div class="text-6xl mb-4">📷</div>
-                        <p>点击快门探索风格</p>
+                    <div v-else class="text-white text-opacity-50 text-center animate-pulse">
+                        <div class="text-8xl mb-4">📷</div>
+                        <p class="text-lg tracking-widest">READY</p>
                     </div>
                 </transition>
             </div>
-            <div class="relative z-20 mt-8 flex flex-col items-center gap-4">
-                <button @click="triggerCamera" :disabled="isLoading" class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center">
-                    <div class="w-16 h-16 rounded-full border-2 border-red-800 bg-red-500"></div>
+
+            <div class="relative z-20 mt-10 flex flex-col items-center gap-6">
+                <button @click="triggerCamera" :disabled="isLoading" 
+                        class="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-red-700 border-4 border-stone-600 shadow-2xl active:scale-95 transition-transform flex items-center justify-center group">
+                    <div class="w-20 h-20 rounded-full border-2 border-red-400 bg-transparent group-hover:bg-white/10 transition"></div>
                 </button>
-                <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)" class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
-                    ✨ 我也要同款 (¥{{ currentCameraPhoto.price }})
+                <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)" 
+                        class="px-10 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 hover:shadow-yellow-500/50 transition-all flex items-center gap-2">
+                    <span>✨ 生成同款</span>
                 </button>
             </div>
         </div>
 
         <!-- 2. 画廊视图 -->
-        <div v-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-white p-4">
-            <div class="max-w-6xl mx-auto mb-8 sticky top-0 bg-white/90 backdrop-blur z-30 py-4">
-                <h2 class="text-3xl retro-font mb-4">Trending Styles</h2>
-                <div class="flex gap-2 overflow-x-auto pb-2">
+        <div v-else-if="currentView === 'gallery'" class="h-full overflow-y-auto bg-stone-50 p-4">
+            <div class="max-w-6xl mx-auto mb-6 sticky top-0 bg-stone-50/95 backdrop-blur z-30 py-4 border-b border-stone-200">
+                <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                     <button v-for="cat in categories" :key="cat" @click="filterCategory(cat)"
-                            class="px-4 py-1 rounded-full border border-stone-300 hover:bg-stone-800 hover:text-white transition-colors"
-                            :class="{'bg-stone-800 text-white': activeCategory === cat}">
+                            class="px-5 py-1.5 rounded-full text-sm font-bold transition-all border"
+                            :class="activeCategory === cat ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'">
                         {{ cat }}
                     </button>
                 </div>
             </div>
-            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-20">
-                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl" @click="createOrder(tpl)">
-                    <img :src="tpl.cover_image_url" class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-110">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                        <h3 class="text-white font-bold">{{ tpl.title }}</h3>
-                        <p class="text-yellow-400 text-sm">🔥 {{ tpl.usage_count }} 人已生成</p>
-                        <button class="mt-2 w-full bg-white text-black py-1 rounded-md text-sm font-bold">做同款</button>
+            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
+                <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all" @click="createOrder(tpl)">
+                    <img :src="tpl.cover_image_url" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                        <h3 class="text-white font-bold text-lg">{{ tpl.title }}</h3>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-yellow-400 text-xs">🔥 {{ tpl.usage_count || 0 }}</span>
+                            <span class="bg-white text-black text-xs px-2 py-1 rounded font-bold">¥{{ tpl.price }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 3. 管理员后台 (Admin Ops) -->
-        <div v-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
-            <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-lg mt-8">
-                <h2 class="text-2xl font-bold mb-6 flex items-center">🛠️ 管理员上架后台</h2>
-                
-                <div class="space-y-4">
-                    <!-- 图片上传 -->
-                    <div>
-                        <label class="block text-sm font-bold mb-1">1. 样图上传 (Cover Image)</label>
-                        <input type="file" @change="handleAdminFileUpload" class="w-full border p-2 rounded">
-                        <div v-if="newTemplate.cover_image_url" class="mt-2 w-32 h-40 bg-gray-100 rounded overflow-hidden">
-                            <img :src="newTemplate.cover_image_url" class="w-full h-full object-cover">
+        <!-- 3. 管理员后台 -->
+        <div v-else-if="currentView === 'admin'" class="h-full overflow-y-auto bg-stone-100 p-4">
+            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- 左侧：上架 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📤 上架新模版</h2>
+                    <div class="space-y-4">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                            <input type="file" @change="handleAdminFileUpload" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <div v-if="!newTemplate.cover_image_url" class="text-gray-400">
+                                <p class="text-2xl">📷</p>
+                                <p class="text-xs">点击上传封面图</p>
+                            </div>
+                            <img v-else :src="newTemplate.cover_image_url" class="h-32 mx-auto object-cover rounded">
                         </div>
-                    </div>
-
-                    <!-- 基础信息 -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-1">标题 (Title)</label>
-                            <input v-model="newTemplate.title" type="text" class="w-full border p-2 rounded" placeholder="e.g. 森林精灵">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-1">分类 (Category)</label>
-                            <select v-model="newTemplate.category" class="w-full border p-2 rounded">
+                        <input v-model="newTemplate.title" class="w-full border p-2 rounded text-sm" placeholder="标题">
+                        <div class="flex gap-2">
+                            <select v-model="newTemplate.category" class="w-1/2 border p-2 rounded text-sm">
                                 <option v-for="cat in categories.filter(c=>c!=='全部')" :value="cat">{{ cat }}</option>
                             </select>
+                            <input v-model.number="newTemplate.price" type="number" class="w-1/2 border p-2 rounded text-sm" placeholder="价格">
+                        </div>
+                        <div class="bg-stone-50 p-3 rounded text-xs space-y-2">
+                            <input v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-1 rounded" placeholder="Base Prompt (Quality)">
+                            <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-1 rounded" rows="2" placeholder="Variable Prompt (Subject)"></textarea>
+                        </div>
+                        <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-2 rounded font-bold text-sm">
+                            {{ isAdminSubmitting ? 'Processing...' : 'Publish Template' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 右侧：数据概览 (Real Data) -->
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h2 class="text-xl font-bold mb-4">📊 运营数据</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <p class="text-xs text-blue-500 uppercase">Total Users</p>
+                                <p class="text-2xl font-bold">{{ adminStats.total_users || 0 }}</p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <p class="text-xs text-green-500 uppercase">Revenue</p>
+                                <p class="text-2xl font-bold">¥{{ adminStats.total_revenue || 0 }}</p>
+                            </div>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="block text-sm font-bold mb-1">价格 (Price)</label>
-                        <input v-model.number="newTemplate.price" type="number" class="w-full border p-2 rounded">
-                    </div>
-
-                    <!-- Prompt 配置 -->
-                    <div class="bg-gray-50 p-4 rounded-lg border">
-                        <h3 class="font-bold text-gray-700 mb-2">Prompt 配置 (JSON)</h3>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Base Prompt (通用画质/光影)</label>
-                            <textarea v-model="newTemplate.prompt_config.base_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Variable Prompt (衣服/动作/场景)</label>
-                            <textarea v-model="newTemplate.prompt_config.variable_prompt" rows="3" class="w-full border p-2 rounded text-sm"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="text-xs text-gray-500">Negative Prompt (负面词)</label>
-                            <textarea v-model="newTemplate.prompt_config.negative_prompt" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h2 class="text-xl font-bold mb-4">👥 用户列表 (最新)</h2>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm border-b pb-2" v-for="usr in adminUsers" :key="usr.id">
+                                <span>{{ usr.username || usr.email }}</span>
+                                <span class="text-green-600">¥{{ usr.balance || 0 }}</span>
+                            </div>
+                            <p class="text-xs text-gray-400 text-center mt-2" v-if="adminUsers.length === 0">No users found</p>
                         </div>
                     </div>
-
-                    <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition">
-                        {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
-                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- 4. 等待/结果遮罩层 -->
-        <div v-if="processingOrder" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center text-white">
-            <div v-if="['PROCESSING','PENDING'].includes(processingOrder.status)" class="text-center">
-                <div class="animate-spin text-6xl mb-4">⏳</div>
-                <h3 class="text-2xl mb-2">AI 正在绘制...</h3>
-                <p class="text-gray-400">预计等待 30 秒</p>
-                <div class="w-64 h-2 bg-gray-700 rounded-full mt-6 overflow-hidden relative">
-                    <div class="absolute top-0 left-0 h-full bg-yellow-500 animate-[progress_30s_ease-out_forwards] w-full origin-left"></div>
+        <!-- 4. 订单处理遮罩 -->
+        <div v-if="processingOrder" class="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center text-white backdrop-blur-md">
+            <div v-if="['PROCESSING','PENDING'].includes(processingOrder.status)" class="text-center w-full max-w-md px-8">
+                <div class="w-24 h-24 mx-auto mb-8 relative">
+                    <div class="absolute inset-0 border-4 border-stone-700 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-t-yellow-500 rounded-full animate-spin"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-2xl">🤖</div>
                 </div>
+                <h3 class="text-2xl font-bold mb-2">AI 正在绘制...</h3>
+                <p class="text-stone-400 text-sm mb-6">正在计算光影与细节，约需 30 秒</p>
+                <div class="w-full bg-stone-800 rounded-full h-1 overflow-hidden">
+                    <div class="bg-yellow-500 h-full w-full animate-[progress_30s_ease-out_forwards] origin-left scale-x-0"></div>
+                </div>
+                <button @click="processingOrder = null" class="mt-8 text-stone-500 text-sm hover:text-white">后台运行 (稍后在订单中查看)</button>
             </div>
+            
             <div v-else-if="processingOrder.status === 'COMPLETED'" class="text-center animate-fade-in">
-                <h3 class="text-3xl retro-font text-yellow-500 mb-6">✨ 完成!</h3>
-                <div class="polaroid w-80 transform rotate-3 scale-110 z-10">
+                <h3 class="text-4xl retro-font text-yellow-500 mb-8">It's Ready!</h3>
+                <div class="polaroid w-80 transform rotate-2 scale-110 z-10 mb-8 shadow-2xl shadow-yellow-500/20">
                     <img :src="processingOrder.result_image_url" class="w-full aspect-[3/4] object-cover bg-gray-200">
-                    <div class="mt-2 px-2"><a :href="processingOrder.result_image_url" download target="_blank" class="text-blue-600 text-sm font-bold">下载原图</a></div>
                 </div>
-                <button @click="processingOrder = null" class="mt-10 px-8 py-2 border border-white rounded-full hover:bg-white hover:text-black">关闭</button>
+                <div class="flex gap-4 justify-center">
+                    <a :href="processingOrder.result_image_url" download target="_blank" class="px-8 py-3 bg-white text-black rounded-full font-bold hover:bg-gray-200 transition">保存原图</a>
+                    <button @click="processingOrder = null" class="px-8 py-3 border border-stone-600 rounded-full hover:border-white transition">关闭</button>
+                </div>
             </div>
-            <div v-else-if="processingOrder.status === 'FAILED'" class="text-center">
-                <div class="text-6xl mb-4">❌</div>
-                <h3>生成失败</h3>
-                <button @click="processingOrder = null" class="mt-6 px-8 py-2 border border-white rounded-full">关闭</button>
+            
+            <div v-else class="text-center">
+                <div class="text-6xl mb-4">⚠️</div>
+                <h3 class="text-2xl font-bold mb-2">生成中断</h3>
+                <p class="text-stone-400 mb-6">抱歉，AI 似乎走神了。积分已自动退回。</p>
+                <button @click="processingOrder = null" class="px-8 py-2 border border-white rounded-full">关闭</button>
             </div>
         </div>
 
     </main>
 
-    <!-- 用户设置模态框 -->
-    <div v-if="showUserModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showUserModal = false">
-        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
-            <h3 class="text-xl font-bold mb-4">我的档案</h3>
-            <div class="flex flex-col items-center mb-6">
-                <div class="w-24 h-24 rounded-full bg-gray-200 overflow-hidden mb-2 border-4 border-yellow-500 relative">
-                    <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
-                    <div v-else class="w-full h-full flex items-center justify-center text-4xl">👤</div>
-                </div>
-                <p class="text-sm text-gray-500" v-if="!user.face_image_url">⚠️ 请先上传正脸照</p>
-            </div>
-            <div class="space-y-3">
-                <input type="file" @change="handleUserFileUpload" accept="image/*" class="w-full border p-2 rounded">
-                <select v-model="tempGender" class="w-full border p-2 rounded">
-                    <option value="female">女 (Female)</option>
-                    <option value="male">男 (Male)</option>
-                </select>
-                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold flex justify-center">
-                    {{ isUploading ? '上传中...' : '保存档案' }}
+    <!-- 认证模态框 -->
+    <div v-if="showAuthModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center" @click.self="showAuthModal = false">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl transform transition-all scale-100">
+            <h2 class="text-2xl font-bold mb-6 text-center text-stone-800">{{ authMode === 'login' ? '欢迎回来' : '创建账号' }}</h2>
+            <div class="space-y-4">
+                <input v-model="authForm.username" type="text" placeholder="邮箱地址" class="w-full border p-3 rounded-lg bg-stone-50 focus:bg-white outline-none focus:ring-2 focus:ring-stone-900 transition">
+                <input v-model="authForm.password" type="password" placeholder="密码" class="w-full border p-3 rounded-lg bg-stone-50 focus:bg-white outline-none focus:ring-2 focus:ring-stone-900 transition">
+                
+                <button @click="handleAuth" class="w-full bg-stone-900 text-white py-3.5 rounded-lg font-bold hover:bg-stone-800 transition transform active:scale-95">
+                    {{ authMode === 'login' ? '登录' : '注册并自动登录' }}
                 </button>
+                
+                <div class="text-center text-xs text-gray-400 mt-4">
+                    <span class="cursor-pointer hover:text-stone-800 underline" @click="authMode = authMode === 'login' ? 'register' : 'login'">
+                        {{ authMode === 'login' ? '新用户注册' : '已有账号登录' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户档案 Modal (含充值 + 历史订单 + 头像) -->
+    <div v-if="showUserModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" @click.self="showUserModal = false">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            
+            <!-- Modal Header -->
+            <div class="bg-stone-900 text-white p-6 flex justify-between items-start">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-full bg-stone-700 border-2 border-yellow-500 overflow-hidden relative">
+                        <img v-if="user.face_image_url" :src="user.face_image_url" class="w-full h-full object-cover">
+                        <div v-else class="w-full h-full flex items-center justify-center text-2xl">👤</div>
+                        <div class="absolute bottom-0 right-0 bg-yellow-500 w-4 h-4 rounded-full border border-white"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">{{ user.username }}</h3>
+                        <p class="text-yellow-400 text-sm font-mono">余额: ¥{{ user.balance }}</p>
+                    </div>
+                </div>
+                <button @click="showUserModal = false" class="text-stone-400 hover:text-white">✕</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-stone-100">
+                <button @click="activeModalTab='history'" class="flex-1 py-3 text-sm font-bold transition" :class="activeModalTab==='history' ? 'text-stone-900 border-b-2 border-stone-900' : 'text-stone-400'">📜 历史订单</button>
+                <button @click="activeModalTab='profile'" class="flex-1 py-3 text-sm font-bold transition" :class="activeModalTab==='profile' ? 'text-stone-900 border-b-2 border-stone-900' : 'text-stone-400'">⚙️ 设置/充值</button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-6 overflow-y-auto flex-grow">
+                
+                <!-- Tab: History -->
+                <div v-if="activeModalTab === 'history'" class="space-y-4">
+                    <div v-if="myOrders.length === 0" class="text-center text-gray-400 py-8">
+                        <p class="text-4xl mb-2">📭</p>
+                        <p>暂无历史订单</p>
+                    </div>
+                    <div v-for="order in myOrders" :key="order.id" class="flex gap-3 items-center bg-gray-50 p-3 rounded-lg">
+                        <div class="w-16 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                            <img v-if="order.result_image_url" :src="order.result_image_url" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-xs text-gray-400">Wait</div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex justify-between">
+                                <span class="font-bold text-sm text-stone-800">Order #{{ order.id.slice(0,6) }}</span>
+                                <span class="text-xs px-2 py-0.5 rounded" :class="{
+                                    'bg-yellow-100 text-yellow-700': order.status==='PENDING',
+                                    'bg-blue-100 text-blue-700': order.status==='PROCESSING',
+                                    'bg-green-100 text-green-700': order.status==='COMPLETED',
+                                    'bg-red-100 text-red-700': order.status==='FAILED'
+                                }">{{ order.status }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ new Date(order.created_at).toLocaleString() }}</p>
+                        </div>
+                        <a v-if="order.status==='COMPLETED'" :href="order.result_image_url" download target="_blank" class="text-blue-600 text-xs font-bold border border-blue-200 px-2 py-1 rounded">⬇️</a>
+                    </div>
+                </div>
+
+                <!-- Tab: Profile/Topup -->
+                <div v-if="activeModalTab === 'profile'" class="space-y-6">
+                    <!-- 充值 -->
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">快捷充值</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button @click="topUp(10)" class="border border-stone-200 text-stone-600 rounded py-2 hover:bg-yellow-50 hover:border-yellow-500 hover:text-yellow-700 transition">¥10</button>
+                            <button @click="topUp(50)" class="border border-stone-200 text-stone-600 rounded py-2 hover:bg-yellow-50 hover:border-yellow-500 hover:text-yellow-700 transition">¥50</button>
+                            <button @click="topUp(100)" class="border border-stone-200 text-stone-600 rounded py-2 bg-stone-50 font-bold hover:bg-yellow-100 hover:border-yellow-500 hover:text-yellow-800 transition">¥100</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 头像 -->
+                    <div class="border-t pt-6">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">更新基准头像</h4>
+                        <div class="flex gap-2">
+                            <input type="file" @change="handleUserFileUpload" accept="image/*" class="flex-grow border p-2 rounded text-sm bg-gray-50">
+                            <select v-model="tempGender" class="w-24 border p-2 rounded text-sm bg-gray-50">
+                                <option value="female">女</option>
+                                <option value="male">男</option>
+                            </select>
+                        </div>
+                        <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-2.5 rounded-lg font-bold text-sm mt-3 hover:bg-stone-700 transition">
+                            {{ isUploading ? '上传中...' : '保存更改' }}
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -205,64 +327,142 @@
 
 <script>
     const API_BASE = 'http://localhost:8000/api/v1'; 
-    const { createApp, ref, onMounted, reactive } = Vue;
+    const { createApp, ref, onMounted, reactive, watch } = Vue;
 
     createApp({
         setup() {
-            // State
+            // --- State Management ---
             const currentView = ref('camera');
-            const user = ref({ balance: 0, face_image_url: null });
-            const currentCameraPhoto = ref(null);
-            const galleryTemplates = ref([]);
+            const isLoggedIn = ref(false);
+            const user = ref({ balance: 0, face_image_url: null, is_superuser: false, username: '' });
+            const token = ref(localStorage.getItem('token') || '');
+            
+            const activeModalTab = ref('profile'); // profile | history
+            const myOrders = ref([]); // 历史订单列表
+
+            // UI Flags
+            const showAuthModal = ref(false);
             const showUserModal = ref(false);
-            const processingOrder = ref(null);
             const isLoading = ref(false);
             const isUploading = ref(false);
+            const isAdminSubmitting = ref(false);
             
-            // User Upload
+            // Auth Data
+            const authMode = ref('login');
+            const authForm = reactive({ username: '', password: '' });
+
+            // Data
+            const currentCameraPhoto = ref(null);
+            const galleryTemplates = ref([]);
+            const processingOrder = ref(null);
             const userFile = ref(null);
             const tempGender = ref('female');
-            
-            // Filter
             const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
             const activeCategory = ref('全部');
 
-            // Admin State
-            const isAdminSubmitting = ref(false);
+            // Admin Data
             const newTemplate = reactive({
                 title: '', category: '复古', price: 9.9, cover_image_url: '',
-                prompt_config: { base_prompt: 'High quality, 8k', variable_prompt: '', negative_prompt: 'nsfw, low quality' }
+                prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
+            });
+            
+            // Admin Stats
+            const adminStats = ref({ total_users: 0, total_revenue: 0 });
+            const adminUsers = ref([]);
+
+            // --- Configuration ---
+            axios.interceptors.request.use(config => {
+                if (token.value) config.headers.Authorization = `Bearer ${token.value}`;
+                return config;
             });
 
-            // --- Init ---
-            const init = async () => {
+            // --- Core Actions ---
+
+            const handleAuth = async () => {
+                try {
+                    if (authMode.value === 'register') {
+                        await axios.post(`${API_BASE}/users/`, {
+                            email: authForm.username,
+                            password: authForm.password,
+                            username: authForm.username.split('@')[0]
+                        });
+                        alert("注册成功，请登录");
+                        authMode.value = 'login';
+                        return;
+                    } 
+                    const fd = new FormData();
+                    fd.append('username', authForm.username);
+                    fd.append('password', authForm.password);
+                    const res = await axios.post(`${API_BASE}/auth/login/access-token`, fd);
+                    
+                    token.value = res.data.access_token;
+                    localStorage.setItem('token', token.value);
+                    isLoggedIn.value = true;
+                    showAuthModal.value = false;
+                    await fetchUserInfo();
+                    loadGallery();
+                } catch (e) { alert("操作失败: " + (e.response?.data?.detail || e.message)); }
+            };
+
+            const logout = () => {
+                token.value = '';
+                localStorage.removeItem('token');
+                isLoggedIn.value = false;
+                user.value = {};
+                showAuthModal.value = true;
+                currentView.value = 'camera';
+            };
+
+            const fetchUserInfo = async () => {
                 try {
                     const res = await axios.get(`${API_BASE}/users/me`);
                     user.value = res.data;
                     tempGender.value = user.value.gender || 'female';
-                } catch(e) { console.error("Network Error", e); }
-                loadGallery();
+                    isLoggedIn.value = true;
+                    fetchOrders(); // 登录后加载订单
+                } catch (e) { logout(); }
             };
 
-            // --- Camera ---
-            const triggerCamera = async () => {
-                isLoading.value = true;
+            const fetchOrders = async () => {
                 try {
-                    const res = await axios.get(`${API_BASE}/templates/random`);
-                    currentCameraPhoto.value = null;
-                    setTimeout(() => { currentCameraPhoto.value = res.data; isLoading.value = false; }, 300);
-                } catch(e) { alert("暂无模版"); isLoading.value = false; }
+                    const res = await axios.get(`${API_BASE}/orders/`);
+                    myOrders.value = res.data;
+                } catch (e) { console.error("Load orders failed"); }
             };
 
-            // --- Order ---
+            const openUserModal = (tab) => {
+                activeModalTab.value = tab;
+                showUserModal.value = true;
+                fetchOrders(); // 每次打开刷新订单
+            };
+
+            const topUp = async (amount) => {
+                try {
+                    const res = await axios.post(`${API_BASE}/users/topup`, { amount: amount });
+                    user.value = res.data;
+                    alert(`充值 ¥${amount} 成功！`);
+                } catch(e) { alert("充值失败"); }
+            };
+
+            // --- Order Logic ---
             const createOrder = async (template) => {
-                if (!user.value.face_image_url) { showUserModal.value = true; return; }
-                if (user.value.balance < template.price) { alert("余额不足"); return; }
+                if (!user.value.face_image_url) { 
+                    alert("请先在个人中心上传您的正脸照片！"); 
+                    activeModalTab.value = 'profile';
+                    showUserModal.value = true; 
+                    return; 
+                }
+                if (user.value.balance < template.price)
+                    alert(`余额不足，请充值！`); 
+                    activeModalTab.value = 'profile';
+                    showUserModal.value = true;
+                    return; 
+                }
                 if (!confirm(`确认制作？消耗 ¥${template.price}`)) return;
 
                 try {
-                    const res = await axios.post(`${API_BASE}/orders`, { template_id: template.id });
-                    user.value.balance -= template.price;
+                    const res = await axios.post(`${API_BASE}/orders/`, { template_id: template.id });
+                    user.value.balance -= template.price; // Optimistic update
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
                 } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
@@ -272,16 +472,32 @@
                 const interval = setInterval(async () => {
                     try {
                         const res = await axios.get(`${API_BASE}/orders/${id}`);
-                        if (processingOrder.value) processingOrder.value.status = res.data.status;
-                        if (res.data.status === 'COMPLETED') {
-                            processingOrder.value.result_image_url = res.data.result_image_url;
-                            clearInterval(interval);
-                        } else if (res.data.status === 'FAILED') clearInterval(interval);
+                        if (processingOrder.value && processingOrder.value.id === id) {
+                            processingOrder.value.status = res.data.status;
+                            if (res.data.status === 'COMPLETED') {
+                                processingOrder.value.result_image_url = res.data.result_image_url;
+                                clearInterval(interval);
+                                fetchOrders(); // 刷新列表
+                            } else if (res.data.status === 'FAILED') {
+                                clearInterval(interval);
+                            }
+                        } else {
+                            clearInterval(interval); // Modal closed
+                        }
                     } catch { clearInterval(interval); }
                 }, 3000);
             };
 
-            // --- User Upload ---
+            // --- Helper Actions ---
+            const triggerCamera = async () => {
+                isLoading.value = true;
+                try {
+                    const res = await axios.get(`${API_BASE}/templates/random`);
+                    currentCameraPhoto.value = null;
+                    setTimeout(() => { currentCameraPhoto.value = res.data; isLoading.value = false; }, 300);
+                } catch { isLoading.value = false; }
+            };
+
             const handleUserFileUpload = (e) => userFile.value = e.target.files[0];
             const updateUserFace = async () => {
                 if(!userFile.value) return alert("请选图");
@@ -293,23 +509,20 @@
                     const res = await axios.post(`${API_BASE}/users/face`, fd);
                     user.value.face_image_url = res.data.url;
                     user.value.gender = tempGender.value;
-                    showUserModal.value = false;
-                    alert("档案更新成功");
-                } catch(e) { alert("上传失败"); } 
+                    alert("照片更新成功");
+                } catch { alert("上传失败"); } 
                 finally { isUploading.value = false; }
             };
 
-            // --- Admin Upload ---
             const handleAdminFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const fd = new FormData();
                 fd.append('file', file);
                 try {
-                    // 使用新的通用上传接口
                     const res = await axios.post(`${API_BASE}/utils/upload`, fd);
                     newTemplate.cover_image_url = res.data.url;
-                } catch(e) { alert("图片上传失败"); }
+                } catch { alert("图片上传失败"); }
             };
 
             const submitNewTemplate = async () => {
@@ -318,34 +531,51 @@
                 try {
                     await axios.post(`${API_BASE}/admin/templates/`, newTemplate);
                     alert("✅ 上架成功！");
-                    // 重置表单
-                    newTemplate.title = '';
-                    newTemplate.cover_image_url = '';
-                    loadGallery(); // 刷新画廊
+                    loadGallery(); 
                 } catch(e) { alert("上架失败: " + e.message); } 
                 finally { isAdminSubmitting.value = false; }
             };
 
-            // --- Gallery ---
             const loadGallery = async (cat='') => {
-                const url = cat && cat!=='全部' ? `${API_BASE}/templates?category=${cat}` : `${API_BASE}/templates`;
-                const res = await axios.get(url);
-                galleryTemplates.value = res.data;
+                const url = cat && cat!=='全部' ? `${API_BASE}/templates/?category=${cat}` : `${API_BASE}/templates/`;
+                try {
+                    const res = await axios.get(url);
+                    galleryTemplates.value = res.data;
+                } catch {}
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
-            const startDrag = () => {};
+            
+            const loadAdminData = async () => {
+                try {
+                    const statsRes = await axios.get(`${API_BASE}/admin/stats/overview`);
+                    adminStats.value = statsRes.data;
+                    
+                    const usersRes = await axios.get(`${API_BASE}/admin/users/list?limit=10`);
+                    adminUsers.value = usersRes.data;
+                } catch (e) { console.error('Failed to load admin data:', e); }
+            };
+            
+            // 监听视图变化，当进入管理员视图时加载数据
+            watch(currentView, (newView) => {
+                if (newView === 'admin') {
+                    loadAdminData();
+                }
+            });
 
             onMounted(init);
 
             return {
-                currentView, user, currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
+                currentView, isLoggedIn, user, token, showAuthModal, authMode, authForm,
+                currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
                 isLoading, isUploading, tempGender, categories, activeCategory,
-                newTemplate, isAdminSubmitting,
-                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory, startDrag,
+                newTemplate, isAdminSubmitting, activeModalTab, myOrders, openUserModal,
+                handleAuth, logout, topUp,
+                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
                 handleAdminFileUpload, submitNewTemplate
             };
         }
     }).mount('#app');
 </script>
+@keyframes progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
 </body>
 </html>

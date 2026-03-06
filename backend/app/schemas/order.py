@@ -29,7 +29,7 @@ class OrderResponse(BaseModel):
     template_id: Optional[str] = None
     status: str
     amount: float
-    credits_consumed: Optional[float] = None
+    balance_consumed: Optional[float] = None
     result_image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
