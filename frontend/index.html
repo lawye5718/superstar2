@@ -582,10 +582,23 @@
         </div>
     </div>
 
+    <!-- Toast Notifications -->
+    <div class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 items-end pointer-events-none">
+        <transition-group name="fade">
+            <div v-for="toast in toasts" :key="toast.id"
+                 class="px-5 py-3 rounded-xl shadow-xl text-white text-sm font-medium pointer-events-auto"
+                 :class="toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'">
+                {{ toast.message }}
+            </div>
+        </transition-group>
+    </div>
+
 </div>
 
 <script>
-    const API_BASE = 'http://localhost:8000/api/v1'; 
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000/api/v1'
+        : '/api/v1';  // 生产环境使用反向代理
     const { createApp, ref, onMounted, reactive } = Vue;
 
     createApp({
@@ -596,6 +609,16 @@
             const showAuthModal = ref(false);
             const authMode = ref('login');
             const authForm = reactive({ email: '', password: '' });
+
+            // Toast Notification State
+            const toasts = ref([]);
+            const showToast = (message, type = 'error', duration = 5000) => {
+                const id = Date.now();
+                toasts.value.push({ id, message, type });
+                setTimeout(() => {
+                    toasts.value = toasts.value.filter(t => t.id !== id);
+                }, duration);
+            };
 
             // App State
             const currentView = ref('camera');
@@ -761,14 +784,25 @@
             };
 
             const pollOrder = async (id) => {
+                const maxAttempts = 60;  // 最多轮询 3 分钟 (60 × 3s)
+                let attempts = 0;
                 const interval = setInterval(async () => {
+                    attempts++;
+                    if (attempts > maxAttempts) {
+                        clearInterval(interval);
+                        showToast("生成超时，请稍后查看订单历史");
+                        return;
+                    }
                     try {
                         const res = await axios.get(`${API_BASE}/orders/${id}`);
                         if (processingOrder.value) processingOrder.value.status = res.data.status;
                         if (res.data.status === 'COMPLETED') {
                             processingOrder.value.result_image_url = res.data.result_image_url;
                             clearInterval(interval);
-                        } else if (res.data.status === 'FAILED') clearInterval(interval);
+                        } else if (res.data.status === 'FAILED') {
+                            clearInterval(interval);
+                            showToast("生成失败，请重试");
+                        }
                     } catch { clearInterval(interval); }
                 }, 3000);
             };
@@ -1045,6 +1079,7 @@
                 favoriteTemplates, adminTemplates, showEditTemplateModal, isEditSubmitting, editTemplate,
                 userOrders, availablePackages,
                 adminPackages, isPackageSubmitting, showEditPackageModal, newPackage, editPackageData,
+                toasts, showToast,
                 handleAuth, logout, topUp, openAdmin, loadAdminData,
                 triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
                 handleAdminFileUpload, submitNewTemplate, updateUserBalance, grantBonus,

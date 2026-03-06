@@ -14,8 +14,8 @@ class TemplateBase(BaseModel):
     config: Dict[str, Any]
     is_approved: Optional[bool] = False
     display_image_urls: List[str]
-    price: Optional[float] = None  # Will use DEFAULT_TEMPLATE_PRICE from config if None
-    usage_count: Optional[int] = 0
+    price: float = 9.9
+    usage_count: int = 0
 
 
 class TemplateCreate(TemplateBase):
