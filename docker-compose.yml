@@ -8,8 +8,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/superstar_db
-      - DATABASE_SYNC_URL=postgresql://user:password@db:5432/superstar_db
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-user}:${DB_PASSWORD:-password}@db:5432/${DB_NAME:-superstar_db}
+      - DATABASE_SYNC_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@db:5432/${DB_NAME:-superstar_db}
       - REDIS_URL=redis://redis:6379
     depends_on:
       db:
@@ -29,15 +29,15 @@ services:
   db:
     image: postgres:14
     environment:
-      - POSTGRES_DB=superstar_db
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=${DB_NAME:-superstar_db}
+      - POSTGRES_USER=${DB_USER:-user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d superstar_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-superstar_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
