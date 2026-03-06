@@ -29,7 +29,9 @@
         <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
+            <button @click="currentView = 'packages'; loadPackages()" :class="{'text-yellow-500': currentView === 'packages'}">🎁 套餐商城</button>
             <button @click="currentView = 'favorites'; loadFavorites()" :class="{'text-yellow-500': currentView === 'favorites'}">❤️ 我的收藏</button>
+            <button @click="currentView = 'orders'; loadOrders()" :class="{'text-yellow-500': currentView === 'orders'}">📋 购买历史</button>
             <button @click="showUserModal = true" class="hover:text-yellow-200 font-bold">👤 {{ user.username || user.email }} (¥{{ user.credits }})</button>
             <!-- 仅管理员可见 -->
             <button v-if="user.is_superuser" @click="openAdmin" :class="{'text-red-400': currentView === 'admin'}" class="text-xs border border-stone-600 px-2 py-1 rounded hover:border-red-400 hover:text-red-400 ml-2 transition">
@@ -126,6 +128,72 @@
                                 <span class="text-yellow-400 text-xs">🔥 {{ tpl.usage_count || 0 }}</span>
                                 <span class="bg-white text-black text-xs px-2 py-1 rounded font-bold">¥{{ tpl.price }}</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.6 购买历史视图 -->
+        <div v-else-if="currentView === 'orders'" class="h-full overflow-y-auto bg-stone-50 p-4">
+            <div class="max-w-4xl mx-auto py-4">
+                <h2 class="text-2xl font-bold mb-6">📋 购买历史</h2>
+                <div v-if="userOrders.length === 0" class="text-center py-20 text-gray-400">
+                    <div class="text-6xl mb-4">📭</div>
+                    <p>还没有任何购买记录</p>
+                    <button @click="currentView = 'gallery'" class="mt-4 px-6 py-2 bg-stone-900 text-white rounded-full">去画廊看看</button>
+                </div>
+                <div v-else class="space-y-4">
+                    <div v-for="order in userOrders" :key="order.id" class="bg-white rounded-xl shadow p-4 flex items-center gap-4">
+                        <div v-if="order.result_image_url && !order.result_image_url.includes('placeholder')" class="w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                            <img :src="order.result_image_url" class="w-full h-full object-cover">
+                        </div>
+                        <div v-else class="w-16 h-20 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-2xl">🖼️</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs px-2 py-0.5 rounded-full font-bold"
+                                      :class="order.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : order.status === 'PENDING' || order.status === 'PROCESSING' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'">
+                                    {{ order.status === 'COMPLETED' ? '已完成' : order.status === 'PENDING' ? '待处理' : order.status === 'PROCESSING' ? '生成中' : order.status === 'FAILED' ? '失败' : order.status }}
+                                </span>
+                                <span class="text-xs text-gray-400">{{ new Date(order.created_at).toLocaleString('zh-CN') }}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1 truncate">订单号: {{ order.id }}</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="text-lg font-bold text-yellow-600">¥{{ order.amount }}</p>
+                            <p class="text-xs text-gray-400">消耗 ¥{{ order.credits_consumed || 0 }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.7 套餐商城视图 -->
+        <div v-else-if="currentView === 'packages'" class="h-full overflow-y-auto bg-stone-50 p-4">
+            <div class="max-w-4xl mx-auto py-4">
+                <h2 class="text-2xl font-bold mb-6">🎁 套餐商城</h2>
+                <div v-if="availablePackages.length === 0" class="text-center py-20 text-gray-400">
+                    <div class="text-6xl mb-4">📦</div>
+                    <p>暂无可用套餐</p>
+                </div>
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div v-for="pkg in availablePackages" :key="pkg.id" class="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
+                        <div class="h-32 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                            <div v-if="pkg.default_display_image_url" class="w-full h-full">
+                                <img :src="pkg.default_display_image_url" class="w-full h-full object-cover">
+                            </div>
+                            <span v-else class="text-5xl">🎁</span>
+                        </div>
+                        <div class="p-5">
+                            <h3 class="text-lg font-bold mb-1">{{ pkg.name }}</h3>
+                            <p class="text-sm text-gray-500 mb-3">{{ pkg.description || '精选套餐' }}</p>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-2xl font-bold text-yellow-600">¥{{ pkg.price }}</span>
+                                <span class="text-sm text-gray-400">含 {{ pkg.item_count }} 次生成</span>
+                            </div>
+                            <button @click="purchasePackage(pkg)" class="w-full py-2 bg-stone-900 text-white rounded-lg font-bold hover:bg-stone-700 transition">
+                                立即购买
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -265,11 +333,73 @@
                         <div class="bg-gray-50 p-4 rounded-lg border">
                             <h3 class="font-bold text-gray-700 mb-2">Prompt 配置</h3>
                             <textarea v-model="newTemplate.prompt_config.base_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Base Prompt"></textarea>
-                            <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm" placeholder="Variable Prompt"></textarea>
+                            <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Variable Prompt"></textarea>
+                            <textarea v-model="newTemplate.prompt_config.negative_prompt" class="w-full border p-2 rounded text-sm" placeholder="Negative Prompt"></textarea>
                         </div>
                         <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition">
                             {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
                         </button>
+                    </div>
+                </div>
+
+                <!-- 管理员套餐管理 -->
+                <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">📦 套餐管理</h2>
+                        <button @click="loadAdminPackages" class="text-sm text-blue-600 hover:underline">刷新</button>
+                    </div>
+                    <div class="grid lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead>
+                                        <tr class="text-left text-gray-500 border-b">
+                                            <th class="py-2 pr-4">套餐名</th>
+                                            <th class="py-2 pr-4">价格</th>
+                                            <th class="py-2 pr-4">次数</th>
+                                            <th class="py-2 pr-4">状态</th>
+                                            <th class="py-2">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="pkg in adminPackages" :key="pkg.id" class="border-b">
+                                            <td class="py-2 pr-4">{{ pkg.name }}</td>
+                                            <td class="py-2 pr-4">¥{{ pkg.price }}</td>
+                                            <td class="py-2 pr-4">{{ pkg.item_count }} 次</td>
+                                            <td class="py-2 pr-4">
+                                                <span :class="pkg.is_active ? 'text-green-600' : 'text-red-500'" class="text-xs font-bold">{{ pkg.is_active ? '上架' : '下架' }}</span>
+                                            </td>
+                                            <td class="py-2 space-x-1">
+                                                <button @click="openEditPackage(pkg)" class="px-3 py-1 bg-blue-600 text-white rounded text-xs">编辑</button>
+                                                <button v-if="pkg.is_active" @click="deactivatePackage(pkg)" class="px-3 py-1 bg-red-500 text-white rounded text-xs">下架</button>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="!adminPackages.length">
+                                            <td colspan="5" class="py-4 text-center text-gray-400">暂无套餐数据</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold mb-3">➕ 新建套餐</h3>
+                            <div class="space-y-3">
+                                <input v-model="newPackage.name" type="text" class="w-full border p-2 rounded text-sm" placeholder="套餐名称">
+                                <textarea v-model="newPackage.description" class="w-full border p-2 rounded text-sm" placeholder="套餐描述" rows="2"></textarea>
+                                <input v-model.number="newPackage.item_count" type="number" class="w-full border p-2 rounded text-sm" placeholder="生成次数" min="1">
+                                <input v-model.number="newPackage.price" type="number" class="w-full border p-2 rounded text-sm" placeholder="价格" step="0.1">
+                                <div>
+                                    <label class="block text-xs font-bold mb-1">封面图 (可选)</label>
+                                    <input type="file" @change="handlePackageImageUpload" class="w-full border p-2 rounded text-sm">
+                                    <div v-if="newPackage.default_display_image_url" class="mt-2 w-20 h-20 bg-gray-100 rounded overflow-hidden">
+                                        <img :src="newPackage.default_display_image_url" class="w-full h-full object-cover">
+                                    </div>
+                                </div>
+                                <button @click="submitNewPackage" :disabled="isPackageSubmitting" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm hover:bg-stone-700 transition">
+                                    {{ isPackageSubmitting ? '创建中...' : '🚀 创建套餐' }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -397,7 +527,8 @@
                 <div class="bg-gray-50 p-4 rounded-lg border">
                     <h3 class="font-bold text-gray-700 mb-2">Prompt 配置</h3>
                     <textarea v-model="editTemplate.prompt_config.base_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Base Prompt" rows="3"></textarea>
-                    <textarea v-model="editTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm" placeholder="Variable Prompt" rows="3"></textarea>
+                    <textarea v-model="editTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Variable Prompt" rows="3"></textarea>
+                    <textarea v-model="editTemplate.prompt_config.negative_prompt" class="w-full border p-2 rounded text-sm" placeholder="Negative Prompt" rows="2"></textarea>
                 </div>
                 <div class="flex items-center gap-2">
                     <label class="text-sm font-bold">上架状态:</label>
@@ -408,6 +539,44 @@
                 </div>
                 <button @click="submitEditTemplate" :disabled="isEditSubmitting" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition">
                     {{ isEditSubmitting ? '保存中...' : '💾 保存修改' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑套餐模态框 -->
+    <div v-if="showEditPackageModal" class="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center" @click.self="showEditPackageModal = false">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">编辑套餐</h3>
+                <button @click="showEditPackageModal = false" class="text-gray-400 hover:text-black">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold mb-1">套餐名称</label>
+                    <input v-model="editPackageData.name" type="text" class="w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">描述</label>
+                    <textarea v-model="editPackageData.description" class="w-full border p-2 rounded text-sm" rows="2"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">生成次数</label>
+                    <input v-model.number="editPackageData.item_count" type="number" class="w-full border p-2 rounded" min="1">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-1">价格</label>
+                    <input v-model.number="editPackageData.price" type="number" class="w-full border p-2 rounded" step="0.1">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-bold">上架状态:</label>
+                    <button @click="editPackageData.is_active = !editPackageData.is_active" :class="editPackageData.is_active ? 'bg-green-500' : 'bg-gray-300'" class="relative w-12 h-6 rounded-full transition-colors">
+                        <span :class="editPackageData.is_active ? 'translate-x-6' : 'translate-x-0'" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+                    </button>
+                    <span class="text-sm">{{ editPackageData.is_active ? '上架' : '下架' }}</span>
+                </div>
+                <button @click="submitEditPackage" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition">
+                    💾 保存修改
                 </button>
             </div>
         </div>
@@ -464,7 +633,26 @@
             const editTemplate = reactive({
                 id: '', title: '', category: '', price: 9.9, cover_image_url: '',
                 is_approved: true,
-                prompt_config: { base_prompt: '', variable_prompt: '' }
+                prompt_config: { base_prompt: '', variable_prompt: '', negative_prompt: '' }
+            });
+
+            // User Orders State
+            const userOrders = ref([]);
+
+            // User Packages State
+            const availablePackages = ref([]);
+
+            // Admin Package Management State
+            const adminPackages = ref([]);
+            const isPackageSubmitting = ref(false);
+            const showEditPackageModal = ref(false);
+            const newPackage = reactive({
+                name: '', description: '', item_count: 1, price: 9.9,
+                default_display_image_url: ''
+            });
+            const editPackageData = reactive({
+                id: '', name: '', description: '', item_count: 1, price: 9.9,
+                is_active: true
             });
 
             // Axios Interceptor for Token
@@ -649,6 +837,7 @@
                 currentView.value = 'admin';
                 loadAdminData();
                 loadAdminTemplates();
+                loadAdminPackages();
             };
 
             const updateUserBalance = async (u) => {
@@ -711,7 +900,8 @@
                 editTemplate.is_approved = tpl.is_approved;
                 editTemplate.prompt_config = {
                     base_prompt: tpl.config?.base_prompt || '',
-                    variable_prompt: tpl.config?.variable_prompt || ''
+                    variable_prompt: tpl.config?.variable_prompt || '',
+                    negative_prompt: tpl.config?.negative_prompt || ''
                 };
                 showEditTemplateModal.value = true;
             };
@@ -746,6 +936,105 @@
                 finally { isEditSubmitting.value = false; }
             };
 
+            // --- User Orders Logic ---
+            const loadOrders = async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/orders/`);
+                    userOrders.value = res.data;
+                } catch(e) { console.error("Orders load failed", e); }
+            };
+
+            // --- User Packages Logic ---
+            const loadPackages = async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/packages/`);
+                    availablePackages.value = res.data;
+                } catch(e) { console.error("Packages load failed", e); }
+            };
+
+            const purchasePackage = async (pkg) => {
+                if (user.value.credits < pkg.price) {
+                    alert("余额不足，请充值！");
+                    showUserModal.value = true;
+                    return;
+                }
+                if (!confirm(`确认购买套餐「${pkg.name}」？消耗 ¥${pkg.price}，获得 ${pkg.item_count} 次生成`)) return;
+                try {
+                    const res = await axios.post(`${API_BASE}/packages/${pkg.id}/purchase`);
+                    user.value.credits = res.data.credits_remaining;
+                    alert(`✅ 购买成功！${res.data.package_name}`);
+                } catch(e) { alert(e.response?.data?.detail || "购买失败"); }
+            };
+
+            // --- Admin Packages Logic ---
+            const loadAdminPackages = async () => {
+                try {
+                    const res = await axios.get(`${API_BASE}/admin/packages/`);
+                    adminPackages.value = res.data;
+                } catch(e) { console.error("Admin packages load failed", e); }
+            };
+
+            const handlePackageImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await axios.post(`${API_BASE}/utils/upload`, fd);
+                    newPackage.default_display_image_url = res.data.url;
+                } catch(e) { alert("图片上传失败"); }
+            };
+
+            const submitNewPackage = async () => {
+                if (!newPackage.name) return alert("请输入套餐名称");
+                if (!newPackage.item_count || newPackage.item_count < 1) return alert("请输入有效的生成次数");
+                isPackageSubmitting.value = true;
+                try {
+                    await axios.post(`${API_BASE}/admin/packages/`, newPackage);
+                    alert("✅ 套餐创建成功！");
+                    newPackage.name = '';
+                    newPackage.description = '';
+                    newPackage.item_count = 1;
+                    newPackage.price = 9.9;
+                    newPackage.default_display_image_url = '';
+                    loadAdminPackages();
+                } catch(e) { alert("创建失败: " + (e.response?.data?.detail || e.message)); }
+                finally { isPackageSubmitting.value = false; }
+            };
+
+            const openEditPackage = (pkg) => {
+                editPackageData.id = pkg.id;
+                editPackageData.name = pkg.name;
+                editPackageData.description = pkg.description || '';
+                editPackageData.item_count = pkg.item_count;
+                editPackageData.price = pkg.price;
+                editPackageData.is_active = pkg.is_active;
+                showEditPackageModal.value = true;
+            };
+
+            const submitEditPackage = async () => {
+                try {
+                    await axios.put(`${API_BASE}/admin/packages/${editPackageData.id}`, {
+                        name: editPackageData.name,
+                        description: editPackageData.description,
+                        item_count: editPackageData.item_count,
+                        price: editPackageData.price,
+                        is_active: editPackageData.is_active
+                    });
+                    alert("✅ 套餐已更新！");
+                    showEditPackageModal.value = false;
+                    loadAdminPackages();
+                } catch(e) { alert("更新失败: " + (e.response?.data?.detail || e.message)); }
+            };
+
+            const deactivatePackage = async (pkg) => {
+                if (!confirm(`确认下架套餐「${pkg.name}」？`)) return;
+                try {
+                    await axios.delete(`${API_BASE}/admin/packages/${pkg.id}`);
+                    loadAdminPackages();
+                } catch(e) { alert("操作失败: " + (e.response?.data?.detail || e.message)); }
+            };
+
             onMounted(init);
 
             return {
@@ -754,11 +1043,16 @@
                 isLoading, isUploading, tempGender, categories, activeCategory,
                 newTemplate, isAdminSubmitting, adminStats, adminUsers, adminUserEdits, adminPagination, adminLoading,
                 favoriteTemplates, adminTemplates, showEditTemplateModal, isEditSubmitting, editTemplate,
+                userOrders, availablePackages,
+                adminPackages, isPackageSubmitting, showEditPackageModal, newPackage, editPackageData,
                 handleAuth, logout, topUp, openAdmin, loadAdminData,
                 triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
                 handleAdminFileUpload, submitNewTemplate, updateUserBalance, grantBonus,
                 toggleFavorite, loadFavorites, loadAdminTemplates, openEditTemplate,
-                handleEditTemplateFileUpload, submitEditTemplate
+                handleEditTemplateFileUpload, submitEditTemplate,
+                loadOrders, loadPackages, purchasePackage,
+                loadAdminPackages, handlePackageImageUpload, submitNewPackage,
+                openEditPackage, submitEditPackage, deactivatePackage
             };
         }
     }).mount('#app');
