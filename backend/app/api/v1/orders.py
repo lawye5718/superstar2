@@ -25,7 +25,7 @@ def _build_order_response(order, task_id=None):
     )
 
 
-def _find_task_for_order(db: Session, order) -> str | None:
+def _find_task_for_order(db: Session, order) -> "str | None":
     """Find the most closely matching GenerationTask for an order by timestamp."""
     if not order.template_id:
         return None

@@ -1,20 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 from app.core.database import get_sync_db
 from app.core.dependencies import get_current_user_id
 from app.models.database import Template, GenderEnum, User
 from app.schemas.template import TemplateResponse
 from pydantic import BaseModel
-from typing import Optional, Dict, Any as AnyType
 
 
 class AdminTemplateCreate(BaseModel):
     title: str
     category: str  # 对应前端的分类
     cover_image_url: str  # 对应前端的封面图
-    prompt_config: Optional[Dict[str, AnyType]] = {}  # 前端的prompt配置
+    prompt_config: Optional[Dict[str, Any]] = {}  # 前端的prompt配置
     price: float = 9.9  # 价格
 
 
@@ -22,7 +21,7 @@ class AdminTemplateUpdate(BaseModel):
     title: Optional[str] = None
     category: Optional[str] = None
     cover_image_url: Optional[str] = None
-    prompt_config: Optional[Dict[str, AnyType]] = None
+    prompt_config: Optional[Dict[str, Any]] = None
     price: Optional[float] = None
     is_approved: Optional[bool] = None
 
