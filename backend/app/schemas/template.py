@@ -33,6 +33,7 @@ class TemplateUpdate(BaseModel):
 
 class TemplateResponse(TemplateBase):
     id: str
+    is_favorited: Optional[bool] = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 

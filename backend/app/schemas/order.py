@@ -22,11 +22,19 @@ class OrderUpdate(BaseModel):
     result_image_url: Optional[str] = None
 
 
+class TaskCallbackRequest(BaseModel):
+    """Schema for task callback webhook"""
+    task_id: str
+    status: str  # COMPLETED or FAILED
+    result_image_url: Optional[str] = None
+
+
 class OrderResponse(BaseModel):
     """Schema for order response"""
     id: str
     user_id: str
     template_id: Optional[str] = None
+    task_id: Optional[str] = None
     status: str
     amount: float
     credits_consumed: Optional[float] = None
