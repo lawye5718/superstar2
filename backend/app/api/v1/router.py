@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 from . import users, orders, templates, utils, auth, favorites
-from .admin import templates as admin_templates, stats as admin_stats, users as admin_users
+from .admin import templates as admin_templates, stats as admin_stats, users as admin_users, packages as admin_packages
 
 api_router = APIRouter()
 
@@ -22,3 +22,4 @@ api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
 api_router.include_router(admin_templates.router, prefix="/admin/templates", tags=["admin"])
 api_router.include_router(admin_stats.router, prefix="/admin", tags=["admin"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin"])
+api_router.include_router(admin_packages.router, prefix="/admin/packages", tags=["admin"])
