@@ -31,8 +31,10 @@ def init_db_data():
                 id="test-user-uuid-001",
                 email="demo@example.com",
                 password_hash=get_password_hash("default_password"),
+                username="demo",
                 credits=100,
-                roles=["user"]
+                roles=["user", "admin"],
+                is_superuser=True
             )
             db.add(demo_user)
             db.commit()
