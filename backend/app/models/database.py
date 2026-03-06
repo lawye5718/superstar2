@@ -112,6 +112,11 @@ class User(Base):
         """Alias for credits to keep API naming consistent"""
         return float(self.credits or 0)
 
+    @balance.setter
+    def balance(self, value):
+        """Setter for balance alias"""
+        self.credits = value
+
 
 class Template(Base):
     """Template (Prompt) model"""

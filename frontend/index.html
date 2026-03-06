@@ -151,7 +151,7 @@
                                         <td class="py-2 pr-4">{{ u.email }}</td>
                                         <td class="py-2 pr-4">{{ u.username }}</td>
                                         <td class="py-2 pr-4">
-                                            <input type="number" v-model.number="adminUserEdits[u.id]" class="border rounded px-2 py-1 w-24" min="0">
+                                            <input type="number" v-model.number="adminUserEdits[u.id]" class="border rounded px-2 py-1 w-24" min="0" :aria-label="`${u.email || u.username} balance`">
                                         </td>
                                         <td class="py-2 space-x-2">
                                             <button @click="updateUserBalance(u)" class="px-3 py-1 bg-stone-900 text-white rounded">保存</button>
@@ -226,7 +226,7 @@
         <div class="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl">
             <h2 class="text-2xl font-bold mb-6 text-center">{{ authMode === 'login' ? '欢迎回来' : '创建账号' }}</h2>
             <div class="space-y-4">
-                <input v-model="authForm.username" type="text" placeholder="邮箱" class="w-full border p-3 rounded-lg">
+                <input v-model="authForm.email" type="email" placeholder="邮箱" class="w-full border p-3 rounded-lg">
                 <input v-model="authForm.password" type="password" placeholder="密码" class="w-full border p-3 rounded-lg">
                 
                 <button @click="handleAuth" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-800 transition">
@@ -297,7 +297,7 @@
             const token = ref(localStorage.getItem('token') || '');
             const showAuthModal = ref(false);
             const authMode = ref('login');
-            const authForm = reactive({ username: '', password: '' });
+            const authForm = reactive({ email: '', password: '' });
 
             // App State
             const currentView = ref('camera');
@@ -336,9 +336,9 @@
                 try {
                     if (authMode.value === 'register') {
                         await axios.post(`${API_BASE}/users/`, {
-                            email: authForm.username,
+                            email: authForm.email,
                             password: authForm.password,
-                            username: authForm.username.split('@')[0]
+                            username: authForm.email.split('@')[0]
                         });
                         alert("注册成功，请登录");
                         authMode.value = 'login';
@@ -347,7 +347,7 @@
                     
                     // 登录
                     const formData = new FormData();
-                    formData.append('username', authForm.username);
+                    formData.append('username', authForm.email);
                     formData.append('password', authForm.password);
                     const res = await axios.post(`${API_BASE}/auth/login/access-token`, formData);
                     

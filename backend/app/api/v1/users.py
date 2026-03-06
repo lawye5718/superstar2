@@ -73,7 +73,7 @@ def update_user_me(
     update_data = normalize_balance_payload(user_in.model_dump(exclude_unset=True))
 
     for field, value in update_data.items():
-        if hasattr(user, field) and field not in ("balance", "is_superuser"):
+        if hasattr(user, field) and field not in ("balance", "is_superuser", "is_active", "roles"):
             setattr(user, field, value)
 
     db.commit()

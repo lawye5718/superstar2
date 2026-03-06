@@ -32,7 +32,7 @@ def get_admin_stats(
     total_templates = db.query(func.count(Template.id)).scalar() or 0
     paid_users = (
         db.query(func.count(func.distinct(Order.user_id)))
-        .filter(Order.credits_purchased > 0)
+        .filter(Order.amount > 0)
         .scalar() or 0
     )
 
