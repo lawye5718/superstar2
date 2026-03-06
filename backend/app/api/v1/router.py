@@ -1,7 +1,7 @@
 """API v1 router"""
 
 from fastapi import APIRouter
-from . import users, orders, templates, utils, auth
+from . import users, orders, templates, utils, auth, favorites
 from .admin import templates as admin_templates, stats as admin_stats, users as admin_users
 
 api_router = APIRouter()
@@ -13,6 +13,7 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(templates.router, prefix="/templates", tags=["templates"])
+api_router.include_router(favorites.router, prefix="/favorites", tags=["favorites"])
 
 # 通用/工具接口
 api_router.include_router(utils.router, prefix="/utils", tags=["utils"])

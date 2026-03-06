@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_sync_db
 from app.core.dependencies import get_current_user_id
 from app.models.database import Order, Template, User
-from app.schemas.admin import AdminStatsResponse, AdminUserListResponse
+from app.schemas.admin import AdminStatsResponse, AdminUserListResponse, TopTemplateItem
 
 router = APIRouter()
 
@@ -36,12 +36,30 @@ def get_admin_stats(
         .scalar() or 0
     )
 
+    # Top 10 templates by usage_count
+    top_templates_rows = (
+        db.query(Template)
+        .order_by(Template.usage_count.desc())
+        .limit(10)
+        .all()
+    )
+    top_templates = [
+        TopTemplateItem(
+            id=str(t.id),
+            title=t.title,
+            usage_count=t.usage_count or 0,
+            price=float(t.price) if t.price else 0.0,
+        )
+        for t in top_templates_rows
+    ]
+
     return AdminStatsResponse(
         total_users=total_users,
         total_orders=total_orders,
         total_revenue=float(total_revenue),
         total_templates=total_templates,
         paid_users=paid_users,
+        top_templates=top_templates,
     )
 
 
