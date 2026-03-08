@@ -5,7 +5,50 @@
 - Python 3.8+ (推荐 3.11 或 3.12)
 - pip (Python 包管理器)
 
-## 安装步骤
+## 前端启动方法
+
+前端是一个基于 Vue 3 CDN 的单文件应用（`frontend/index.html`），**无需构建步骤**。
+
+### 方式一：直接用浏览器打开
+
+```bash
+# 直接在浏览器中打开 frontend/index.html 文件
+open frontend/index.html          # macOS
+xdg-open frontend/index.html      # Linux
+start frontend\index.html         # Windows
+```
+
+> **注意**：直接从文件系统打开时浏览器会施加 CORS 限制，API 请求可能被阻止。
+> 建议使用方式二或以上方式以获得完整功能。
+
+### 方式二：使用 Python 内置 HTTP 服务器（推荐开发环境）
+
+```bash
+cd frontend
+python -m http.server 3000
+```
+
+然后访问 http://localhost:3000
+
+### 方式三：使用 Docker
+
+```bash
+docker build -t superstar-frontend ./frontend
+docker run -p 3000:80 superstar-frontend
+```
+
+然后访问 http://localhost:3000
+
+### 方式四：使用 Docker Compose（全栈）
+
+```bash
+docker-compose up
+```
+
+- 前端：http://localhost:3000
+- 后端：http://localhost:8000
+
+## 后端安装步骤
 
 ### 1. 安装依赖
 
