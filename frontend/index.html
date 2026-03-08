@@ -11,12 +11,14 @@
     <style>
         .retro-font { font-family: 'Abril Fatface', cursive; }
         .body-font { font-family: 'Lato', sans-serif; }
-        .polaroid { background: white; padding: 1rem 1rem 3rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: rotate(-2deg); transition: transform 0.3s; }
+        .polaroid { background: white; padding: 1rem 1rem 3rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2), inset 0 0 15px rgba(255,255,255,0.5); transform: rotate(-2deg); transition: transform 0.3s; }
         .polaroid:hover { transform: rotate(0deg) scale(1.02); z-index: 10; }
         .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes skeleton-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .skeleton-pulse { animation: skeleton-pulse 1.5s ease-in-out infinite; }
     </style>
 </head>
 <body class="bg-stone-100 body-font text-stone-800 h-screen overflow-hidden">
@@ -24,9 +26,9 @@
 <div id="app" class="h-full flex flex-col">
 
     <!-- 导航栏 -->
-    <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50">
+    <nav class="bg-stone-900 text-white p-4 flex justify-between items-center shadow-lg z-50 relative">
         <div class="text-2xl retro-font text-yellow-500 tracking-wider cursor-pointer" @click="currentView='camera'">SUPERSTAR.AI</div>
-        <div v-if="isLoggedIn" class="space-x-4 text-sm flex items-center">
+        <div v-if="isLoggedIn" class="hidden md:flex space-x-4 text-sm items-center">
             <button @click="currentView = 'camera'" :class="{'text-yellow-500': currentView === 'camera'}">复古相机</button>
             <button @click="currentView = 'gallery'" :class="{'text-yellow-500': currentView === 'gallery'}">画廊套餐</button>
             <button @click="currentView = 'packages'; loadPackages()" :class="{'text-yellow-500': currentView === 'packages'}">🎁 套餐商城</button>
@@ -39,8 +41,24 @@
             </button>
             <button @click="logout" class="text-stone-500 hover:text-white ml-4">✕</button>
         </div>
+        <!-- Mobile hamburger menu -->
+        <button v-if="isLoggedIn" @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden text-white text-2xl focus:outline-none" aria-label="Toggle menu">
+            <span v-if="!mobileMenuOpen">☰</span>
+            <span v-else>✕</span>
+        </button>
         <div v-else>
             <button @click="showAuthModal = true" class="bg-yellow-500 text-black px-4 py-1 rounded font-bold hover:bg-yellow-400">登录 / 注册</button>
+        </div>
+        <!-- Mobile dropdown menu -->
+        <div v-if="isLoggedIn && mobileMenuOpen" class="absolute top-full left-0 right-0 bg-stone-900 border-t border-stone-700 md:hidden z-50 flex flex-col text-sm">
+            <button @click="currentView = 'camera'; mobileMenuOpen = false" :class="{'text-yellow-500': currentView === 'camera'}" class="px-4 py-3 text-left hover:bg-stone-800">复古相机</button>
+            <button @click="currentView = 'gallery'; mobileMenuOpen = false" :class="{'text-yellow-500': currentView === 'gallery'}" class="px-4 py-3 text-left hover:bg-stone-800">画廊套餐</button>
+            <button @click="currentView = 'packages'; loadPackages(); mobileMenuOpen = false" :class="{'text-yellow-500': currentView === 'packages'}" class="px-4 py-3 text-left hover:bg-stone-800">🎁 套餐商城</button>
+            <button @click="currentView = 'favorites'; loadFavorites(); mobileMenuOpen = false" :class="{'text-yellow-500': currentView === 'favorites'}" class="px-4 py-3 text-left hover:bg-stone-800">❤️ 我的收藏</button>
+            <button @click="currentView = 'orders'; loadOrders(); mobileMenuOpen = false" :class="{'text-yellow-500': currentView === 'orders'}" class="px-4 py-3 text-left hover:bg-stone-800">📋 购买历史</button>
+            <button @click="showUserModal = true; mobileMenuOpen = false" class="px-4 py-3 text-left hover:bg-stone-800 hover:text-yellow-200 font-bold">👤 {{ user.username || user.email }} (¥{{ user.credits }})</button>
+            <button v-if="user.is_superuser" @click="openAdmin(); mobileMenuOpen = false" :class="{'text-red-400': currentView === 'admin'}" class="px-4 py-3 text-left hover:bg-stone-800 text-xs">ADMIN OPS</button>
+            <button @click="logout" class="px-4 py-3 text-left text-stone-500 hover:text-white hover:bg-stone-800 border-t border-stone-700">退出登录</button>
         </div>
     </nav>
 
@@ -70,7 +88,7 @@
                 </transition>
             </div>
             <div class="relative z-20 mt-8 flex flex-col items-center gap-4">
-                <button @click="triggerCamera" :disabled="isLoading" class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center">
+                <button @click="triggerCamera" :disabled="isLoading" class="w-20 h-20 rounded-full bg-red-600 border-4 border-stone-300 shadow-xl active:scale-95 transition-transform flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                     <div class="w-16 h-16 rounded-full border-2 border-red-800 bg-red-500"></div>
                 </button>
                 <button v-if="currentCameraPhoto" @click="createOrder(currentCameraPhoto)" class="px-8 py-3 bg-yellow-500 text-stone-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-colors animate-bounce">
@@ -90,9 +108,15 @@
                     </button>
                 </div>
             </div>
-            <div class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
+            <!-- Skeleton loading -->
+            <div v-if="isLoadingGallery" class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
+                <div v-for="n in 8" :key="'skeleton-'+n" class="rounded-xl overflow-hidden shadow-md">
+                    <div class="skeleton-pulse bg-gray-300 w-full h-64 rounded-xl"></div>
+                </div>
+            </div>
+            <div v-else class="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
                 <div v-for="tpl in galleryTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all">
-                    <img :src="tpl.cover_image_url" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
+                    <img :src="tpl.cover_image_url" loading="lazy" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
                     <button @click.stop="toggleFavorite(tpl)" class="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white transition shadow" :title="tpl.is_favorited ? '取消收藏' : '收藏'">
                         <span :class="tpl.is_favorited ? 'text-red-500' : 'text-gray-400'" class="text-lg">{{ tpl.is_favorited ? '❤️' : '🤍' }}</span>
                     </button>
@@ -118,7 +142,7 @@
                 </div>
                 <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     <div v-for="tpl in favoriteTemplates" :key="tpl.id" class="group relative cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all">
-                        <img :src="tpl.cover_image_url" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
+                        <img :src="tpl.cover_image_url" loading="lazy" @click="createOrder(tpl)" class="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105">
                         <button @click.stop="toggleFavorite(tpl).then(() => loadFavorites())" class="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-white transition shadow">
                             <span class="text-red-500 text-lg">❤️</span>
                         </button>
@@ -336,7 +360,7 @@
                             <textarea v-model="newTemplate.prompt_config.variable_prompt" class="w-full border p-2 rounded text-sm mb-2" placeholder="Variable Prompt"></textarea>
                             <textarea v-model="newTemplate.prompt_config.negative_prompt" class="w-full border p-2 rounded text-sm" placeholder="Negative Prompt"></textarea>
                         </div>
-                        <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition">
+                        <button @click="submitNewTemplate" :disabled="isAdminSubmitting" class="w-full bg-stone-900 text-white py-3 rounded-lg font-bold hover:bg-stone-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
                             {{ isAdminSubmitting ? '上传中...' : '🚀 上架新模版' }}
                         </button>
                     </div>
@@ -395,7 +419,7 @@
                                         <img :src="newPackage.default_display_image_url" class="w-full h-full object-cover">
                                     </div>
                                 </div>
-                                <button @click="submitNewPackage" :disabled="isPackageSubmitting" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm hover:bg-stone-700 transition">
+                                <button @click="submitNewPackage" :disabled="isPackageSubmitting" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm hover:bg-stone-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
                                     {{ isPackageSubmitting ? '创建中...' : '🚀 创建套餐' }}
                                 </button>
                             </div>
@@ -420,13 +444,13 @@
                 </div>
                 <div class="space-x-4">
                     <a :href="processingOrder.result_image_url" download target="_blank" class="px-6 py-2 bg-blue-600 rounded-full font-bold">下载原图</a>
-                    <button @click="processingOrder = null" class="px-6 py-2 border border-white rounded-full">关闭</button>
+                    <button @click="closeOrderOverlay" class="px-6 py-2 border border-white rounded-full">关闭</button>
                 </div>
             </div>
             <div v-else class="text-center">
                 <div class="text-6xl mb-4">❌</div>
                 <h3 class="text-2xl mb-2">生成失败</h3>
-                <button @click="processingOrder = null" class="mt-4 px-6 py-2 border border-white rounded-full">关闭</button>
+                <button @click="closeOrderOverlay" class="mt-4 px-6 py-2 border border-white rounded-full">关闭</button>
             </div>
         </div>
 
@@ -488,7 +512,7 @@
                     <option value="female">女 (Female)</option>
                     <option value="male">男 (Male)</option>
                 </select>
-                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm">
+                <button @click="updateUserFace" :disabled="isUploading" class="w-full bg-stone-900 text-white py-2 rounded-lg font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                     {{ isUploading ? '上传中...' : '保存照片' }}
                 </button>
             </div>
@@ -537,7 +561,7 @@
                     </button>
                     <span class="text-sm">{{ editTemplate.is_approved ? '已上架' : '未上架' }}</span>
                 </div>
-                <button @click="submitEditTemplate" :disabled="isEditSubmitting" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition">
+                <button @click="submitEditTemplate" :disabled="isEditSubmitting" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed">
                     {{ isEditSubmitting ? '保存中...' : '💾 保存修改' }}
                 </button>
             </div>
@@ -628,11 +652,14 @@
             const showUserModal = ref(false);
             const processingOrder = ref(null);
             const isLoading = ref(false);
+            const isLoadingGallery = ref(false);
             const isUploading = ref(false);
             const userFile = ref(null);
             const tempGender = ref('female');
             const categories = ['全部', '复古', '轻奢', '运动', '森系', '职场'];
             const activeCategory = ref('全部');
+            const mobileMenuOpen = ref(false);
+            const pollInterval = ref(null);
 
             // Admin State
             const isAdminSubmitting = ref(false);
@@ -693,7 +720,7 @@
                             password: authForm.password,
                             username: authForm.email.split('@')[0]
                         });
-                        alert("注册成功，请登录");
+                        showToast("注册成功，请登录", 'success');
                         authMode.value = 'login';
                         return;
                     }
@@ -710,7 +737,7 @@
                     await fetchUserInfo();
                     loadGallery();
                 } catch (e) {
-                    alert("操作失败: " + (e.response?.data?.detail || e.message));
+                    showToast("操作失败: " + (e.response?.data?.detail || e.message), 'error');
                 }
             };
 
@@ -738,8 +765,8 @@
                 try {
                     const res = await axios.post(`${API_BASE}/users/topup`, { amount });
                     user.value = res.data;
-                    alert(`充值 ¥${amount} 成功！`);
-                } catch(e) { alert("充值失败"); }
+                    showToast(`充值 ¥${amount} 成功！`, 'success');
+                } catch(e) { showToast("充值失败", 'error'); }
             };
 
             // --- App Logic ---
@@ -759,17 +786,17 @@
                     currentCameraPhoto.value = null;
                     const tpl = {...res.data, cover_image_url: res.data.display_image_urls?.[0] || ''};
                     setTimeout(() => { currentCameraPhoto.value = tpl; isLoading.value = false; }, 300);
-                } catch(e) { alert("暂无模版"); isLoading.value = false; }
+                } catch(e) { showToast("暂无模版", 'error'); isLoading.value = false; }
             };
 
             const createOrder = async (template) => {
                 if (!user.value.face_image_url) { 
-                    alert("请先在个人中心上传您的正脸照片！");
+                    showToast("请先在个人中心上传您的正脸照片！", 'error');
                     showUserModal.value = true; 
                     return; 
                 }
                 if (user.value.credits < template.price) { 
-                    alert("余额不足，请充值！"); 
+                    showToast("余额不足，请充值！", 'error'); 
                     showUserModal.value = true;
                     return; 
                 }
@@ -780,16 +807,18 @@
                     user.value.credits -= template.price;
                     processingOrder.value = { ...res.data, template };
                     pollOrder(res.data.id);
-                } catch(e) { alert(e.response?.data?.detail || "下单失败"); }
+                } catch(e) { showToast(e.response?.data?.detail || "下单失败", 'error'); }
             };
 
             const pollOrder = async (id) => {
-                const maxAttempts = 60;  // 最多轮询 3 分钟 (60 × 3s)
+                const maxAttempts = 60;
                 let attempts = 0;
-                const interval = setInterval(async () => {
+                if (pollInterval.value) clearInterval(pollInterval.value);
+                
+                pollInterval.value = setInterval(async () => {
                     attempts++;
                     if (attempts > maxAttempts) {
-                        clearInterval(interval);
+                        clearInterval(pollInterval.value);
                         showToast("生成超时，请稍后查看订单历史");
                         return;
                     }
@@ -798,18 +827,23 @@
                         if (processingOrder.value) processingOrder.value.status = res.data.status;
                         if (res.data.status === 'COMPLETED') {
                             processingOrder.value.result_image_url = res.data.result_image_url;
-                            clearInterval(interval);
+                            clearInterval(pollInterval.value);
                         } else if (res.data.status === 'FAILED') {
-                            clearInterval(interval);
+                            clearInterval(pollInterval.value);
                             showToast("生成失败，请重试");
                         }
-                    } catch { clearInterval(interval); }
+                    } catch { clearInterval(pollInterval.value); }
                 }, 3000);
+            };
+
+            const closeOrderOverlay = () => {
+                if (pollInterval.value) clearInterval(pollInterval.value);
+                processingOrder.value = null;
             };
 
             const handleUserFileUpload = (e) => userFile.value = e.target.files[0];
             const updateUserFace = async () => {
-                if(!userFile.value) return alert("请选图");
+                if(!userFile.value) { showToast("请选图", 'error'); return; }
                 isUploading.value = true;
                 const fd = new FormData();
                 fd.append('file', userFile.value);
@@ -818,8 +852,8 @@
                     const res = await axios.post(`${API_BASE}/users/face`, fd);
                     user.value.face_image_url = res.data.url;
                     user.value.gender = tempGender.value;
-                    alert("照片更新成功");
-                } catch(e) { alert("上传失败"); } 
+                    showToast("照片更新成功", 'success');
+                } catch(e) { showToast("上传失败", 'error'); } 
                 finally { isUploading.value = false; }
             };
 
@@ -831,20 +865,20 @@
                 try {
                     const res = await axios.post(`${API_BASE}/utils/upload`, fd);
                     newTemplate.cover_image_url = res.data.url;
-                } catch(e) { alert("图片上传失败"); }
+                } catch(e) { showToast("图片上传失败", 'error'); }
             };
 
             const submitNewTemplate = async () => {
-                if (!newTemplate.cover_image_url) return alert("请先上传样图");
+                if (!newTemplate.cover_image_url) { showToast("请先上传样图", 'error'); return; }
                 isAdminSubmitting.value = true;
                 try {
                     await axios.post(`${API_BASE}/admin/templates/`, newTemplate);
-                    alert("✅ 上架成功！");
+                    showToast("✅ 上架成功！", 'success');
                     newTemplate.title = '';
                     newTemplate.cover_image_url = '';
                     loadGallery();
                     loadAdminTemplates();
-                } catch(e) { alert("上架失败: " + e.message); } 
+                } catch(e) { showToast(e.response?.data?.detail || "上架失败: " + e.message, 'error'); } 
                 finally { isAdminSubmitting.value = false; }
             };
 
@@ -877,14 +911,14 @@
             const updateUserBalance = async (u) => {
                 const amount = adminUserEdits[u.id];
                 if (amount === null || amount === undefined || isNaN(amount) || amount < 0) {
-                    alert("请输入有效的余额数值");
+                    showToast("请输入有效的余额数值", 'error');
                     return;
                 }
                 try {
                     await axios.patch(`${API_BASE}/admin/users/${u.id}`, { credits: amount });
                     await loadAdminData();
                 } catch (e) {
-                    alert("更新失败: " + (e.response?.data?.detail || e.message));
+                    showToast("更新失败: " + (e.response?.data?.detail || e.message), 'error');
                 }
             };
 
@@ -895,10 +929,12 @@
 
             const loadGallery = async (cat='') => {
                 const url = cat && cat!=='全部' ? `${API_BASE}/templates/?category=${cat}` : `${API_BASE}/templates/`;
+                isLoadingGallery.value = true;
                 try {
                     const res = await axios.get(url);
                     galleryTemplates.value = res.data.map(t => ({...t, cover_image_url: t.display_image_urls?.[0] || ''}));
                 } catch(e) { console.error("Gallery load failed", e); }
+                finally { isLoadingGallery.value = false; }
             };
             const filterCategory = (cat) => { activeCategory.value = cat; loadGallery(cat); };
 
@@ -907,7 +943,7 @@
                 try {
                     const res = await axios.post(`${API_BASE}/favorites/${tpl.id}/favorite`);
                     tpl.is_favorited = res.data.is_favorited;
-                } catch(e) { alert("收藏操作失败"); }
+                } catch(e) { showToast("收藏操作失败", 'error'); }
             };
 
             const loadFavorites = async () => {
@@ -948,7 +984,7 @@
                 try {
                     const res = await axios.post(`${API_BASE}/utils/upload`, fd);
                     editTemplate.cover_image_url = res.data.url;
-                } catch(e) { alert("图片上传失败"); }
+                } catch(e) { showToast("图片上传失败", 'error'); }
             };
 
             const submitEditTemplate = async () => {
@@ -962,11 +998,11 @@
                         price: editTemplate.price,
                         is_approved: editTemplate.is_approved
                     });
-                    alert("✅ 模板已更新！");
+                    showToast("✅ 模板已更新！", 'success');
                     showEditTemplateModal.value = false;
                     loadAdminTemplates();
                     loadGallery();
-                } catch(e) { alert("更新失败: " + (e.response?.data?.detail || e.message)); }
+                } catch(e) { showToast("更新失败: " + (e.response?.data?.detail || e.message), 'error'); }
                 finally { isEditSubmitting.value = false; }
             };
 
@@ -988,7 +1024,7 @@
 
             const purchasePackage = async (pkg) => {
                 if (user.value.credits < pkg.price) {
-                    alert("余额不足，请充值！");
+                    showToast("余额不足，请充值！", 'error');
                     showUserModal.value = true;
                     return;
                 }
@@ -996,8 +1032,8 @@
                 try {
                     const res = await axios.post(`${API_BASE}/packages/${pkg.id}/purchase`);
                     user.value.credits = res.data.credits_remaining;
-                    alert(`✅ 购买成功！${res.data.package_name}`);
-                } catch(e) { alert(e.response?.data?.detail || "购买失败"); }
+                    showToast(`✅ 购买成功！${res.data.package_name}`, 'success');
+                } catch(e) { showToast(e.response?.data?.detail || "购买失败", 'error'); }
             };
 
             // --- Admin Packages Logic ---
@@ -1016,23 +1052,23 @@
                 try {
                     const res = await axios.post(`${API_BASE}/utils/upload`, fd);
                     newPackage.default_display_image_url = res.data.url;
-                } catch(e) { alert("图片上传失败"); }
+                } catch(e) { showToast("图片上传失败", 'error'); }
             };
 
             const submitNewPackage = async () => {
-                if (!newPackage.name) return alert("请输入套餐名称");
-                if (!newPackage.item_count || newPackage.item_count < 1) return alert("请输入有效的生成次数");
+                if (!newPackage.name) { showToast("请输入套餐名称", 'error'); return; }
+                if (!newPackage.item_count || newPackage.item_count < 1) { showToast("请输入有效的生成次数", 'error'); return; }
                 isPackageSubmitting.value = true;
                 try {
                     await axios.post(`${API_BASE}/admin/packages/`, newPackage);
-                    alert("✅ 套餐创建成功！");
+                    showToast("✅ 套餐创建成功！", 'success');
                     newPackage.name = '';
                     newPackage.description = '';
                     newPackage.item_count = 1;
                     newPackage.price = 9.9;
                     newPackage.default_display_image_url = '';
                     loadAdminPackages();
-                } catch(e) { alert("创建失败: " + (e.response?.data?.detail || e.message)); }
+                } catch(e) { showToast("创建失败: " + (e.response?.data?.detail || e.message), 'error'); }
                 finally { isPackageSubmitting.value = false; }
             };
 
@@ -1055,10 +1091,10 @@
                         price: editPackageData.price,
                         is_active: editPackageData.is_active
                     });
-                    alert("✅ 套餐已更新！");
+                    showToast("✅ 套餐已更新！", 'success');
                     showEditPackageModal.value = false;
                     loadAdminPackages();
-                } catch(e) { alert("更新失败: " + (e.response?.data?.detail || e.message)); }
+                } catch(e) { showToast("更新失败: " + (e.response?.data?.detail || e.message), 'error'); }
             };
 
             const deactivatePackage = async (pkg) => {
@@ -1066,7 +1102,7 @@
                 try {
                     await axios.delete(`${API_BASE}/admin/packages/${pkg.id}`);
                     loadAdminPackages();
-                } catch(e) { alert("操作失败: " + (e.response?.data?.detail || e.message)); }
+                } catch(e) { showToast("操作失败: " + (e.response?.data?.detail || e.message), 'error'); }
             };
 
             onMounted(init);
@@ -1074,14 +1110,15 @@
             return {
                 currentView, isLoggedIn, user, token, showAuthModal, authMode, authForm,
                 currentCameraPhoto, galleryTemplates, showUserModal, processingOrder, 
-                isLoading, isUploading, tempGender, categories, activeCategory,
+                isLoading, isLoadingGallery, isUploading, tempGender, categories, activeCategory,
+                mobileMenuOpen, pollInterval,
                 newTemplate, isAdminSubmitting, adminStats, adminUsers, adminUserEdits, adminPagination, adminLoading,
                 favoriteTemplates, adminTemplates, showEditTemplateModal, isEditSubmitting, editTemplate,
                 userOrders, availablePackages,
                 adminPackages, isPackageSubmitting, showEditPackageModal, newPackage, editPackageData,
                 toasts, showToast,
                 handleAuth, logout, topUp, openAdmin, loadAdminData,
-                triggerCamera, createOrder, updateUserFace, handleUserFileUpload, filterCategory,
+                triggerCamera, createOrder, closeOrderOverlay, updateUserFace, handleUserFileUpload, filterCategory,
                 handleAdminFileUpload, submitNewTemplate, updateUserBalance, grantBonus,
                 toggleFavorite, loadFavorites, loadAdminTemplates, openEditTemplate,
                 handleEditTemplateFileUpload, submitEditTemplate,
